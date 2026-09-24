@@ -20,6 +20,8 @@ import 'package:html_unescape/html_unescape.dart';
 import 'package:simple_live_core/src/scripts/douyu_sign.dart';
 
 class DouyuSite implements LiveSite {
+  final Map<String, String> _roomCrpTextCache = {};
+
   @override
   String id = "douyu";
 
@@ -136,7 +138,36 @@ class DouyuSite implements LiveSite {
     required LiveRoomDetail detail,
     required LivePlayQuality quality,
   }) async {
-    var args = detail.data.toString();
+    var args = "";
+    var crptext = _roomCrpTextCache[detail.roomId];
+    if (crptext == null || crptext.isEmpty) {
+      try {
+        var jsEncResult = await HttpClient.instance.getText(
+          "https://www.douyu.com/swf_api/homeH5Enc?rids=${detail.roomId}",
+          queryParameters: {},
+          header: {
+            'referer': 'https://www.douyu.com/${detail.roomId}',
+            'user-agent':
+                "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/114.0.0.0 Safari/537.36 Edg/114.0.1823.43",
+          },
+        );
+        crptext =
+            json.decode(jsEncResult)["data"]["room${detail.roomId}"].toString();
+        _roomCrpTextCache[detail.roomId] = crptext;
+      } catch (_) {}
+    }
+
+    if (crptext != null && crptext.isNotEmpty) {
+      try {
+        args = DouyuSign.getSign(crptext, detail.roomId);
+        detail.data = args;
+      } catch (_) {}
+    }
+
+    if (args.isEmpty) {
+      args = detail.data.toString();
+    }
+
     var data = quality.data as DouyuPlayData;
 
     List<String> urls = [];
@@ -156,18 +187,34 @@ class DouyuSite implements LiveSite {
     String cdn,
   ) async {
     args += "&cdn=$cdn&rate=$rate";
-    var result = await HttpClient.instance.postJson(
-      "https://www.douyu.com/lapi/live/getH5Play/$roomId",
-      data: args,
-      header: {
-        'referer': 'https://www.douyu.com/$roomId',
-        'user-agent':
-            "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/114.0.0.0 Safari/537.36 Edg/114.0.1823.43",
-      },
-      formUrlEncoded: true,
-    );
+    try {
+      var result = await HttpClient.instance.postJson(
+        "https://www.douyu.com/lapi/live/getH5Play/$roomId",
+        data: args,
+        header: {
+          'referer': 'https://www.douyu.com/$roomId',
+          'user-agent':
+              "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/114.0.0.0 Safari/537.36 Edg/114.0.1823.43",
+        },
+        formUrlEncoded: true,
+      );
 
-    return "${result["data"]["rtmp_url"]}/${HtmlUnescape().convert(result["data"]["rtmp_live"].toString())}";
+      if (result is String) {
+        try {
+          result = json.decode(result);
+        } catch (_) {}
+      }
+
+      if (result is Map && result["error"] == 0 && result["data"] is Map) {
+        var rtmpUrl = result["data"]["rtmp_url"]?.toString() ?? "";
+        var rtmpLive = result["data"]["rtmp_live"]?.toString() ?? "";
+        if (rtmpUrl.isNotEmpty && rtmpLive.isNotEmpty) {
+          return "$rtmpUrl/${HtmlUnescape().convert(rtmpLive)}";
+        }
+      }
+    } catch (_) {}
+
+    return "";
   }
 
   @override
@@ -220,6 +267,7 @@ class DouyuSite implements LiveSite {
       },
     );
     var crptext = json.decode(jsEncResult)["data"]["room$roomId"].toString();
+    _roomCrpTextCache[roomId] = crptext;
 
     return LiveRoomDetail(
       cover: roomInfo["room_pic"].toString(),

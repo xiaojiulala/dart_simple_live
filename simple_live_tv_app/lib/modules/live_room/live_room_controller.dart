@@ -62,6 +62,7 @@ class LiveRoomController extends PlayerController with WidgetsBindingObserver {
   var isBackground = false;
 
   var datetime = "00:00".obs;
+  Timer? _resetRetryTimer;
 
   void initTimer() {
     Timer.periodic(const Duration(seconds: 1), (timer) {
@@ -446,7 +447,50 @@ class LiveRoomController extends PlayerController with WidgetsBindingObserver {
     setPlayer();
   }
 
-  void setPlayer() async {
+  Future<bool> reloadPlayUrls({bool silent = true}) async {
+    if (detail.value == null ||
+        currentQuality < 0 ||
+        currentQuality >= qualites.length) {
+      return false;
+    }
+    try {
+      var playUrl = await site.liveSite
+          .getPlayUrls(detail: detail.value!, quality: qualites[currentQuality]);
+      if (playUrl.urls.isEmpty) {
+        if (!silent) {
+          SmartDialog.showToast("无法读取播放地址");
+        }
+        return false;
+      }
+      playUrls.value = playUrl.urls;
+      playHeaders = playUrl.headers;
+      if (currentLineIndex < 0) {
+        currentLineIndex = 0;
+      } else if (currentLineIndex >= playUrls.length) {
+        currentLineIndex = playUrls.length - 1;
+      }
+      currentLineInfo.value = "线路${currentLineIndex + 1}";
+      return true;
+    } catch (e) {
+      if (!silent) {
+        SmartDialog.showToast("读取播放地址失败");
+      }
+      return false;
+    }
+  }
+
+  void setPlayer({bool refreshUrls = false}) async {
+    if (refreshUrls) {
+      var reloaded = await reloadPlayUrls(silent: true);
+      if (!reloaded) {
+        return;
+      }
+    }
+    if (playUrls.isEmpty ||
+        currentLineIndex < 0 ||
+        currentLineIndex >= playUrls.length) {
+      return;
+    }
     currentLineInfo.value = "线路${currentLineIndex + 1}";
     errorMsg.value = "";
     player.open(
@@ -456,20 +500,27 @@ class LiveRoomController extends PlayerController with WidgetsBindingObserver {
       ),
     );
 
+    // 播放正常维持 15 秒后重置重试计数器，使得每次10分钟断开都能成功续播
+    _resetRetryTimer?.cancel();
+    _resetRetryTimer = Timer(const Duration(seconds: 15), () {
+      mediaErrorRetryCount = 0;
+    });
+
     Log.d("播放链接\r\n：${playUrls[currentLineIndex]}");
   }
 
   @override
   void mediaEnd() async {
-    if (mediaErrorRetryCount < 2) {
+    if (mediaErrorRetryCount < 3) {
       Log.d("播放结束，尝试第${mediaErrorRetryCount + 1}次刷新");
-      if (mediaErrorRetryCount == 1) {
+      if (mediaErrorRetryCount > 0) {
         //延迟一秒再刷新
         await Future.delayed(const Duration(seconds: 1));
       }
       mediaErrorRetryCount += 1;
-      //刷新一次
-      setPlayer();
+      bool shouldRefresh =
+          site.id == Constant.kDouyu || site.id == Constant.kHuya;
+      setPlayer(refreshUrls: shouldRefresh);
       return;
     }
 
@@ -479,23 +530,22 @@ class LiveRoomController extends PlayerController with WidgetsBindingObserver {
       liveStatus.value = false;
     } else {
       changePlayLine(currentLineIndex + 1);
-
-      //setPlayer();
     }
   }
 
   int mediaErrorRetryCount = 0;
   @override
   void mediaError(String error) async {
-    if (mediaErrorRetryCount < 2) {
+    if (mediaErrorRetryCount < 3) {
       Log.d("播放失败，尝试第${mediaErrorRetryCount + 1}次刷新");
-      if (mediaErrorRetryCount == 1) {
+      if (mediaErrorRetryCount > 0) {
         //延迟一秒再刷新
         await Future.delayed(const Duration(seconds: 1));
       }
       mediaErrorRetryCount += 1;
-      //刷新一次
-      setPlayer();
+      bool shouldRefresh =
+          site.id == Constant.kDouyu || site.id == Constant.kHuya;
+      setPlayer(refreshUrls: shouldRefresh);
       return;
     }
 
@@ -503,8 +553,6 @@ class LiveRoomController extends PlayerController with WidgetsBindingObserver {
       errorMsg.value = "播放失败";
       SmartDialog.showToast("播放失败:$error");
     } else {
-      //currentLineIndex += 1;
-      //setPlayer();
       changePlayLine(currentLineIndex + 1);
     }
   }
@@ -658,6 +706,7 @@ class LiveRoomController extends PlayerController with WidgetsBindingObserver {
 
   @override
   void onClose() {
+    _resetRetryTimer?.cancel();
     liveDanmaku.stop();
     _liveEventFlowTimer?.cancel();
     clearLiveEventFlow();

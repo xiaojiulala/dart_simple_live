@@ -5,11 +5,11 @@ on:
       build_tv:
         description: "Build Android TV on GitHub Actions"
         type: boolean
-        default: false
+        default: true
       ref:
-        description: "Git ref to build, for example master or tv_v1.7.1"
+        description: "Git ref to build, for example tv-1.7.6-fix or leave empty for current branch"
         required: false
-        default: "master"
+        default: ""
       upload_release:
         description: "Upload build outputs to the matching GitHub Release when ref is a TV tag"
         required: false
@@ -18,14 +18,14 @@ on:
 jobs:
   build-tv:
     if: ${{ inputs.build_tv == true }}
-    runs-on: macos-latest
+    runs-on: ubuntu-latest
     permissions:
       contents: write
     steps:
       #签出代码
       - uses: actions/checkout@v4
         with:
-          ref: ${{ inputs.ref }}
+          ref: ${{ inputs.ref != '' && inputs.ref || github.ref }}
 
       #APK签名设置
       - name: Prepare Android keystore
@@ -52,7 +52,7 @@ jobs:
       - name: Flutter action
         uses: subosito/flutter-action@v2
         with:
-          flutter-version: "3.41.x"
+          flutter-version: "3.41.9"
           cache: true
 
       #更新Flutter的packages
