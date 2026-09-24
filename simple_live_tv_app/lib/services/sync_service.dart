@@ -147,7 +147,11 @@ class SyncService extends GetxService {
       serverRouter.get('/', _helloRequest);
       serverRouter.get('/info', _infoRequest);
       serverRouter.post('/sync/follow', _syncFollowUserReuqest);
+      serverRouter.get('/sync/follow', _exportFollowUserRequest);
+      serverRouter.get('/export/follow', _exportFollowUserRequest);
       serverRouter.post('/sync/history', _syncHistoryReuqest);
+      serverRouter.get('/sync/history', _exportHistoryRequest);
+      serverRouter.get('/export/history', _exportHistoryRequest);
       serverRouter.post('/sync/blocked_word', _syncBlockedWordReuqest);
       serverRouter.post('/sync/account/bilibili', _syncBiliAccountReuqest);
       serverRouter.post('/sync/account/douyin', _syncDouyinAccountReuqest);
@@ -196,6 +200,52 @@ class SyncService extends GetxService {
       'address': ipAddress.value,
       'port': httpPort,
     });
+  }
+
+  /// 导出关注列表（供手机/电脑浏览器直接下载）
+  shelf.Response _exportFollowUserRequest(shelf.Request request) {
+    try {
+      final users = DBService.instance.followBox.values.toList();
+      final list = users.map((e) => e.toJson()).toList();
+      return shelf.Response.ok(
+        json.encode(list),
+        headers: {
+          'Content-Type': 'application/json; charset=utf-8',
+          'Content-Disposition':
+              'attachment; filename="simple_live_tv_follows.json"',
+          'Access-Control-Allow-Origin': '*',
+        },
+        encoding: Encoding.getByName('utf-8'),
+      );
+    } catch (e) {
+      return toJsonResponse({
+        'status': false,
+        'message': e.toString(),
+      });
+    }
+  }
+
+  /// 导出历史记录（供手机/电脑浏览器直接下载）
+  shelf.Response _exportHistoryRequest(shelf.Request request) {
+    try {
+      final histories = DBService.instance.historyBox.values.toList();
+      final list = histories.map((e) => e.toJson()).toList();
+      return shelf.Response.ok(
+        json.encode(list),
+        headers: {
+          'Content-Type': 'application/json; charset=utf-8',
+          'Content-Disposition':
+              'attachment; filename="simple_live_tv_history.json"',
+          'Access-Control-Allow-Origin': '*',
+        },
+        encoding: Encoding.getByName('utf-8'),
+      );
+    } catch (e) {
+      return toJsonResponse({
+        'status': false,
+        'message': e.toString(),
+      });
+    }
   }
 
   /// 同步关注用户列表

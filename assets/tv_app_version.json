@@ -1,5 +1,5 @@
 {
-    "version": "1.7.6.1",
+    "version": "1.7.7",
     "version_num": 10707,
     "version_desc": "- 修复斗鱼直播约10分钟断流问题，增加断流实时重新计算签名无感续播机制",
     "prerelease": false,
