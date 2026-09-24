@@ -160,7 +160,6 @@ class DouyuSite implements LiveSite {
     if (crptext != null && crptext.isNotEmpty) {
       try {
         args = DouyuSign.getSign(crptext, detail.roomId);
-        detail.data = args;
       } catch (_) {}
     }
 
