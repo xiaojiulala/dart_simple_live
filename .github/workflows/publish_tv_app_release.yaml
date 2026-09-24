@@ -1,5 +1,8 @@
 name: app-build-action
 on:
+  push:
+    branches:
+      - tv-1.7.6-fix
   workflow_dispatch:
     inputs:
       build_tv:
@@ -17,15 +20,13 @@ on:
         type: boolean
 jobs:
   build-tv:
-    if: ${{ inputs.build_tv == true }}
+    if: ${{ github.event_name == 'push' || inputs.build_tv == true }}
     runs-on: ubuntu-latest
     permissions:
       contents: write
     steps:
       #签出代码
       - uses: actions/checkout@v4
-        with:
-          ref: ${{ inputs.ref != '' && inputs.ref || github.ref }}
 
       #APK签名设置
       - name: Prepare Android keystore
