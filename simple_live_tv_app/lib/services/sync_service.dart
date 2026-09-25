@@ -15,6 +15,7 @@ import 'package:simple_live_tv_app/models/db/history.dart';
 import 'package:simple_live_tv_app/services/bilibili_account_service.dart';
 import 'package:simple_live_tv_app/services/db_service.dart';
 import 'package:simple_live_tv_app/services/douyin_account_service.dart';
+import 'package:simple_live_tv_app/services/douyu_account_service.dart';
 import 'package:udp/udp.dart';
 import 'package:shelf/shelf.dart' as shelf;
 import 'package:shelf/shelf_io.dart' as shelf_io;
@@ -155,6 +156,7 @@ class SyncService extends GetxService {
       serverRouter.post('/sync/blocked_word', _syncBlockedWordReuqest);
       serverRouter.post('/sync/account/bilibili', _syncBiliAccountReuqest);
       serverRouter.post('/sync/account/douyin', _syncDouyinAccountReuqest);
+      serverRouter.post('/sync/account/douyu', _syncDouyuAccountRequest);
 
       var server = await shelf_io.serve(
         serverRouter,
@@ -422,6 +424,35 @@ class SyncService extends GetxService {
       }
       DouyinAccountService.instance.setCookie(cookie);
       SmartDialog.showToast('已同步抖音账号');
+      return toJsonResponse({
+        'status': true,
+        'message': 'success',
+      });
+    } catch (e) {
+      return toJsonResponse({
+        'status': false,
+        'message': e.toString(),
+      });
+    }
+  }
+
+  /// 同步斗鱼账号
+  Future<shelf.Response> _syncDouyuAccountRequest(
+      shelf.Request request) async {
+    try {
+      var body = await request.readAsString();
+      Log.d('_syncDouyuAccountRequest');
+      var jsonBody = json.decode(body);
+      if (jsonBody is! Map) {
+        throw const FormatException("账号数据格式不是对象");
+      }
+      var cookie = jsonBody['cookie']?.toString() ?? "";
+      if (cookie.isEmpty) {
+        throw const FormatException("账号 Cookie 为空");
+      }
+      DouyuAccountService.instance.setCookie(cookie);
+      DouyuAccountService.instance.loadUserInfo();
+      SmartDialog.showToast('已同步斗鱼账号');
       return toJsonResponse({
         'status': true,
         'message': 'success',

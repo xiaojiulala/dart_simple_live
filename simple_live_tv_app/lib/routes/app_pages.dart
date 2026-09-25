@@ -3,6 +3,8 @@
 import 'package:get/get.dart';
 import 'package:simple_live_tv_app/modules/account/bilibili/qr_login_controller.dart';
 import 'package:simple_live_tv_app/modules/account/bilibili/qr_login_page.dart';
+import 'package:simple_live_tv_app/modules/account/douyu/qr_login_controller.dart';
+import 'package:simple_live_tv_app/modules/account/douyu/qr_login_page.dart';
 import 'package:simple_live_tv_app/modules/agreement/agreement_page.dart';
 import 'package:simple_live_tv_app/modules/category/category_controller.dart';
 import 'package:simple_live_tv_app/modules/category/category_page.dart';
@@ -89,6 +91,14 @@ class AppPages {
       page: () => const BiliBiliQRLoginPage(),
       bindings: [
         BindingsBuilder.put(() => BiliBiliQRLoginController()),
+      ],
+    ),
+    //斗鱼二维码登录
+    GetPage(
+      name: RoutePath.kDouyuQRLogin,
+      page: () => const DouyuQRLoginPage(),
+      bindings: [
+        BindingsBuilder.put(() => DouyuQRLoginController()),
       ],
     ),
     // 设置

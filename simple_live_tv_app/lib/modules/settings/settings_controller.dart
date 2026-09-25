@@ -5,6 +5,7 @@ import 'package:simple_live_tv_app/app/controller/base_controller.dart';
 import 'package:simple_live_tv_app/app/utils.dart';
 import 'package:simple_live_tv_app/routes/app_navigation.dart';
 import 'package:simple_live_tv_app/services/bilibili_account_service.dart';
+import 'package:simple_live_tv_app/services/douyu_account_service.dart';
 
 class SettingsController extends BaseController
     with GetTickerProviderStateMixin {
@@ -65,7 +66,9 @@ class SettingsController extends BaseController
   var multiRoomGapFocusNode = AppFocusNode();
 
   var bilibiliFoucsNode = AppFocusNode();
+  var douyuFocusNode = AppFocusNode();
   var versionFocusNode = AppFocusNode();
+
   void bilibiliTap() async {
     if (BiliBiliAccountService.instance.logined.value) {
       var result = await Utils.showAlertDialog("确定要退出哔哩哔哩账号吗？", title: "退出登录");
@@ -74,6 +77,17 @@ class SettingsController extends BaseController
       }
     } else {
       AppNavigator.toBiliBiliLogin();
+    }
+  }
+
+  void douyuTap() async {
+    if (DouyuAccountService.instance.logined.value) {
+      var result = await Utils.showAlertDialog("确定要退出斗鱼账号吗？", title: "退出登录");
+      if (result) {
+        DouyuAccountService.instance.logout();
+      }
+    } else {
+      AppNavigator.toDouyuLogin();
     }
   }
 }

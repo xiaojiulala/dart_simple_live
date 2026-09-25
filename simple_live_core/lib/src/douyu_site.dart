@@ -21,6 +21,7 @@ import 'package:simple_live_core/src/scripts/douyu_sign.dart';
 
 class DouyuSite implements LiveSite {
   final Map<String, String> _roomCrpTextCache = {};
+  String cookie = "";
 
   @override
   String id = "douyu";
@@ -101,9 +102,18 @@ class DouyuSite implements LiveSite {
     var data = detail.data.toString();
     data += "&cdn=&rate=-1&ver=Douyu_223061205&iar=1&ive=1&hevc=0&fa=0";
     List<LivePlayQuality> qualities = [];
+    var headers = <String, String>{
+      'referer': 'https://www.douyu.com/${detail.roomId}',
+      'user-agent':
+          "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/114.0.0.0 Safari/537.36 Edg/114.0.1823.43",
+    };
+    if (cookie.isNotEmpty) {
+      headers['cookie'] = cookie;
+    }
     var result = await HttpClient.instance.postJson(
       "https://www.douyu.com/lapi/live/getH5Play/${detail.roomId}",
       data: data,
+      header: headers,
       formUrlEncoded: true,
     );
 
@@ -186,15 +196,18 @@ class DouyuSite implements LiveSite {
     String cdn,
   ) async {
     args += "&cdn=$cdn&rate=$rate";
-    try {
+      var headers = <String, String>{
+        'referer': 'https://www.douyu.com/$roomId',
+        'user-agent':
+            "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/114.0.0.0 Safari/537.36 Edg/114.0.1823.43",
+      };
+      if (cookie.isNotEmpty) {
+        headers['cookie'] = cookie;
+      }
       var result = await HttpClient.instance.postJson(
         "https://www.douyu.com/lapi/live/getH5Play/$roomId",
         data: args,
-        header: {
-          'referer': 'https://www.douyu.com/$roomId',
-          'user-agent':
-              "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/114.0.0.0 Safari/537.36 Edg/114.0.1823.43",
-        },
+        header: headers,
         formUrlEncoded: true,
       );
 

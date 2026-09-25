@@ -31,5 +31,7 @@ Update.md
 # others
 tmp_*.png
 tmp_*.xml
+douyu_qr.png
+build_output/
 
 .codex/project-experience.md

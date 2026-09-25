@@ -8,6 +8,7 @@ import 'package:simple_live_tv_app/app/controller/app_settings_controller.dart';
 import 'package:simple_live_tv_app/app/utils.dart';
 import 'package:simple_live_tv_app/modules/settings/settings_controller.dart';
 import 'package:simple_live_tv_app/services/bilibili_account_service.dart';
+import 'package:simple_live_tv_app/services/douyu_account_service.dart';
 import 'package:simple_live_tv_app/services/douyin_account_service.dart';
 import 'package:simple_live_tv_app/services/follow_user_service.dart';
 import 'package:simple_live_tv_app/services/signalr_service.dart';
@@ -675,18 +676,21 @@ class SettingsPage extends GetView<SettingsController> {
           ),
         ),
         AppStyle.vGap24,
-        HighlightListTile(
-          focusNode: AppFocusNode(),
-          title: "斗鱼账号",
-          subtitle: "无需登录",
-          leading: Image.asset(
-            "assets/images/douyu.png",
-            width: 64.w,
-            height: 64.w,
+        Obx(
+          () => HighlightListTile(
+            focusNode: controller.douyuFocusNode,
+            autofocus: controller.douyuFocusNode.isFoucsed.value,
+            title: "斗鱼账号",
+            subtitle: DouyuAccountService.instance.logined.value
+                ? "已登录：${DouyuAccountService.instance.name.value}"
+                : "未登录，点击登录",
+            leading: Image.asset(
+              "assets/images/douyu.png",
+              width: 64.w,
+              height: 64.w,
+            ),
+            onTap: controller.douyuTap,
           ),
-          onTap: () {
-            SmartDialog.showToast("无需登录斗鱼，您可以直接观看直播");
-          },
         ),
         AppStyle.vGap24,
         HighlightListTile(

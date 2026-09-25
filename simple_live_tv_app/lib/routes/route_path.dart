@@ -30,6 +30,9 @@ class RoutePath {
   /// 哔哩哔哩登录
   static const kBiliBiliQRLogin = "/bilibili/qr_login";
 
+  /// 斗鱼登录
+  static const kDouyuQRLogin = "/douyu/qr_login";
+
   /// 设置
   static const kSettings = "/settings";
 

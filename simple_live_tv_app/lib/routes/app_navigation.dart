@@ -43,6 +43,11 @@ class AppNavigator {
     await Get.toNamed(RoutePath.kBiliBiliQRLogin);
   }
 
+  /// 跳转至斗鱼登录
+  static Future toDouyuLogin() async {
+    await Get.toNamed(RoutePath.kDouyuQRLogin);
+  }
+
   /// 跳转至分类详情
   static void toCategoryDetail(
       {required Site site, required LiveSubCategoryExt category}) {
