@@ -196,6 +196,7 @@ class DouyuSite implements LiveSite {
     String cdn,
   ) async {
     args += "&cdn=$cdn&rate=$rate";
+    try {
       var headers = <String, String>{
         'referer': 'https://www.douyu.com/$roomId',
         'user-agent':
