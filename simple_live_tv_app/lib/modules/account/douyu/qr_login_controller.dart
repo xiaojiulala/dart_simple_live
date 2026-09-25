@@ -1,6 +1,6 @@
 import 'dart:async';
 
-import 'package:dio/dio.dart';
+import 'package:dio/dio.dart' as dio;
 import 'package:flutter_smart_dialog/flutter_smart_dialog.dart';
 import 'package:get/get.dart';
 import 'package:simple_live_tv_app/app/log.dart';
@@ -99,7 +99,7 @@ class DouyuQRLoginController extends GetxController {
         var authUrl = response["data"]?["url"]?.toString() ?? "";
         if (authUrl.isNotEmpty) {
           var cookies = <String>[];
-          void extractCookies(Response resp) {
+          void extractCookies(dio.Response resp) {
             resp.headers["set-cookie"]?.forEach((element) {
               var cookie = element.split(";")[0].trim();
               if (cookie.isNotEmpty) {
@@ -117,8 +117,8 @@ class DouyuQRLoginController extends GetxController {
             }
             var resp = await HttpClient.instance.dio.get(
               jsonpUrl,
-              options: Options(
-                responseType: ResponseType.plain,
+              options: dio.Options(
+                responseType: dio.ResponseType.plain,
                 headers: {
                   'User-Agent':
                       'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
@@ -136,10 +136,10 @@ class DouyuQRLoginController extends GetxController {
               try {
                 var resp = await HttpClient.instance.dio.get(
                   currentUrl,
-                  options: Options(
+                  options: dio.Options(
                     followRedirects: false,
                     validateStatus: (status) => status != null && status < 500,
-                    responseType: ResponseType.plain,
+                    responseType: dio.ResponseType.plain,
                     headers: {
                       'User-Agent':
                           'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
