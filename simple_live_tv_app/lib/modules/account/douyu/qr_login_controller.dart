@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:dio/dio.dart';
 import 'package:flutter_smart_dialog/flutter_smart_dialog.dart';
 import 'package:get/get.dart';
 import 'package:simple_live_tv_app/app/log.dart';
@@ -97,23 +98,87 @@ class DouyuQRLoginController extends GetxController {
         timer?.cancel();
         var authUrl = response["data"]?["url"]?.toString() ?? "";
         if (authUrl.isNotEmpty) {
-          var cbResp = await HttpClient.instance.get(
-            authUrl,
-            header: {
-              'User-Agent':
-                  'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-              'Referer': 'https://passport.douyu.com/',
-            },
-          );
           var cookies = <String>[];
-          cbResp.headers["set-cookie"]?.forEach((element) {
-            var cookie = element.split(";")[0].trim();
-            if (cookie.isNotEmpty) {
-              cookies.add(cookie);
+          void extractCookies(Response resp) {
+            resp.headers["set-cookie"]?.forEach((element) {
+              var cookie = element.split(";")[0].trim();
+              if (cookie.isNotEmpty) {
+                cookies.add(cookie);
+              }
+            });
+          }
+
+          // 1. 先尝试官方标准的 JSONP 回调方式
+          try {
+            var jsonpUrl = authUrl;
+            if (!jsonpUrl.contains("callback=")) {
+              jsonpUrl += (jsonpUrl.contains("?") ? "&" : "?") +
+                  "callback=appClient_json_callback";
             }
-          });
+            var resp = await HttpClient.instance.dio.get(
+              jsonpUrl,
+              options: Options(
+                responseType: ResponseType.plain,
+                headers: {
+                  'User-Agent':
+                      'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+                  'Referer': 'https://passport.douyu.com/',
+                },
+              ),
+            );
+            extractCookies(resp);
+          } catch (_) {}
+
+          // 2. 如果 JSONP 未获取到 cookie，使用手动重定向跟踪（followRedirects: false）访问原始 authUrl
+          if (cookies.isEmpty) {
+            String currentUrl = authUrl;
+            for (int i = 0; i < 5; i++) {
+              try {
+                var resp = await HttpClient.instance.dio.get(
+                  currentUrl,
+                  options: Options(
+                    followRedirects: false,
+                    validateStatus: (status) => status != null && status < 500,
+                    responseType: ResponseType.plain,
+                    headers: {
+                      'User-Agent':
+                          'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+                      'Referer': 'https://passport.douyu.com/',
+                    },
+                  ),
+                );
+                extractCookies(resp);
+
+                if (resp.statusCode == 301 ||
+                    resp.statusCode == 302 ||
+                    resp.statusCode == 303 ||
+                    resp.statusCode == 307) {
+                  var location = resp.headers.value("location");
+                  if (location != null && location.isNotEmpty) {
+                    currentUrl = location.startsWith("http")
+                        ? location
+                        : "https://www.douyu.com$location";
+                    continue;
+                  }
+                }
+                break;
+              } catch (_) {
+                break;
+              }
+            }
+          }
+
+          // 3. 去重并组装完整 Cookie 字符串
           if (cookies.isNotEmpty) {
-            var cookieStr = cookies.join("; ");
+            Map<String, String> cookieMap = {};
+            for (var item in cookies) {
+              var parts = item.split("=");
+              if (parts.length >= 2) {
+                cookieMap[parts[0].trim()] = parts.sublist(1).join("=").trim();
+              }
+            }
+            var cookieStr =
+                cookieMap.entries.map((e) => "${e.key}=${e.value}").join("; ");
             Log.i("Douyu login cookie: $cookieStr");
             DouyuAccountService.instance.setCookie(cookieStr);
             await DouyuAccountService.instance.loadUserInfo();

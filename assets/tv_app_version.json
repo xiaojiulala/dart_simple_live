@@ -1,6 +1,6 @@
 {
-    "version": "1.7.8",
-    "version_num": 10708,
+    "version": "1.7.9",
+    "version_num": 10709,
     "version_desc": "- 修复斗鱼断流问题\n- 新增斗鱼账号扫码登录与局域网同步支持",
     "prerelease": false,
     "download_url": "https://github.com/June6699/dart_simple_live/releases/tag/tv_v1.7.6"
