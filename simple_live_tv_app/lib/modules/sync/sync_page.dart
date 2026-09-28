@@ -199,7 +199,7 @@ class SyncPage extends GetView<SyncController> {
                         () => Visibility(
                           visible: SyncService.instance.httpRunning.value,
                           child: Text(
-                            "请扫描二维码或输入IP地址进行连接\n建立连接后可在APP端选择需要同步至TV端的数据\n或浏览器访问 http://IP:23234/export/follow 导出关注",
+                            "请扫描二维码或输入IP地址进行连接\n建立连接后可在APP端选择需要同步至TV端的数据\n或浏览器访问 http://${SyncService.instance.ipAddress.value.split(';').first}:${SyncService.httpPort} 管理与导入导出关注",
                             style: AppStyle.textStyleWhite,
                             textAlign: TextAlign.center,
                           ),
