@@ -259,7 +259,8 @@ class SyncService extends GetxService {
         'roomId': e.roomId,
         'siteId': e.siteId,
         'userName': e.userName,
-        'avatar': e.avatar,
+        'face': e.face,
+        'avatar': e.face,
       }).toList();
       return toJsonResponse({
         'status': true,
@@ -828,7 +829,8 @@ async function loadFollows() {
       }
       let html = '';
       for(const u of res.data) {
-        const avatar = u.avatar ? '<img class="follow-avatar" src="' + u.avatar + '" onerror="this.style.display=\\'none\\'" />' : '<div class="follow-avatar"></div>';
+        const pic = u.face || u.avatar || '';
+        const avatar = pic ? '<img class="follow-avatar" src="' + pic + '" onerror="this.style.display=\\'none\\'" />' : '<div class="follow-avatar"></div>';
         html += '<div class="follow-item">' +
           avatar +
           '<div class="follow-info">' +

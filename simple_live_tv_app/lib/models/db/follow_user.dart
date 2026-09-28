@@ -52,7 +52,7 @@ class FollowUser {
       roomId: roomId,
       siteId: siteId,
       userName: json['userName']?.toString() ?? "",
-      face: json['face']?.toString() ?? "",
+      face: (json['face'] ?? json['avatar'])?.toString() ?? "",
       addTime: DateTime.tryParse(json['addTime']?.toString() ?? "") ??
           DateTime.now(),
       isSpecialFollow:
