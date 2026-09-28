@@ -20,7 +20,6 @@ import 'package:html_unescape/html_unescape.dart';
 import 'package:simple_live_core/src/scripts/douyu_sign.dart';
 
 class DouyuSite implements LiveSite {
-  final Map<String, String> _roomCrpTextCache = {};
   String cookie = "";
 
   @override
@@ -148,31 +147,8 @@ class DouyuSite implements LiveSite {
     required LiveRoomDetail detail,
     required LivePlayQuality quality,
   }) async {
-    var args = "";
-    var crptext = _roomCrpTextCache[detail.roomId];
-    if (crptext == null || crptext.isEmpty) {
-      try {
-        var jsEncResult = await HttpClient.instance.getText(
-          "https://www.douyu.com/swf_api/homeH5Enc?rids=${detail.roomId}",
-          queryParameters: {},
-          header: {
-            'referer': 'https://www.douyu.com/${detail.roomId}',
-            'user-agent':
-                "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/114.0.0.0 Safari/537.36 Edg/114.0.1823.43",
-          },
-        );
-        crptext =
-            json.decode(jsEncResult)["data"]["room${detail.roomId}"].toString();
-        _roomCrpTextCache[detail.roomId] = crptext;
-      } catch (_) {}
-    }
-
-    if (crptext != null && crptext.isNotEmpty) {
-      try {
-        args = DouyuSign.getSign(crptext, detail.roomId);
-      } catch (_) {}
-    }
-
+    // 每次拉流或续播均重新获取最新时间戳脚本签名，防止 10-15 分钟加密串过期导致卡死
+    var args = await _getFreshPlayArgs(detail.roomId, fallback: detail.data);
     if (args.isEmpty) {
       args = detail.data.toString();
     }
@@ -187,6 +163,32 @@ class DouyuSite implements LiveSite {
       }
     }
     return LivePlayUrl(urls: urls);
+  }
+
+  Future<String> _getFreshPlayArgs(String roomId, {Object? fallback}) async {
+    try {
+      final jsEncResult = await HttpClient.instance.getText(
+        "https://www.douyu.com/swf_api/homeH5Enc?rids=$roomId",
+        queryParameters: {},
+        header: {
+          'referer': 'https://www.douyu.com/$roomId',
+          'user-agent':
+              "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+          if (cookie.trim().isNotEmpty) 'cookie': cookie.trim(),
+        },
+      );
+      final decoded = json.decode(jsEncResult);
+      final payload = decoded is Map ? decoded["data"] : null;
+      final script =
+          payload is Map ? payload["room$roomId"]?.toString() : null;
+      if (script != null && script.isNotEmpty) {
+        final signed = DouyuSign.getSign(script, roomId);
+        if (signed.isNotEmpty) {
+          return signed;
+        }
+      }
+    } catch (_) {}
+    return fallback?.toString() ?? "";
   }
 
   Future<String> getPlayUrl(
@@ -270,17 +272,7 @@ class DouyuSite implements LiveSite {
     );
     String? showTime = h5RoomInfo["data"]?["show_time"]?.toString();
 
-    var jsEncResult = await HttpClient.instance.getText(
-      "https://www.douyu.com/swf_api/homeH5Enc?rids=$roomId",
-      queryParameters: {},
-      header: {
-        'referer': 'https://www.douyu.com/$roomId',
-        'user-agent':
-            "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/114.0.0.0 Safari/537.36 Edg/114.0.1823.43",
-      },
-    );
-    var crptext = json.decode(jsEncResult)["data"]["room$roomId"].toString();
-    _roomCrpTextCache[roomId] = crptext;
+    final playArgs = await _getFreshPlayArgs(roomInfo["room_id"].toString());
 
     return LiveRoomDetail(
       cover: roomInfo["room_pic"].toString(),
@@ -293,7 +285,7 @@ class DouyuSite implements LiveSite {
       notice: "",
       status: roomInfo["show_status"] == 1 && roomInfo["videoLoop"] != 1,
       danmakuData: roomInfo["room_id"].toString(),
-      data: DouyuSign.getSign(crptext, roomInfo["room_id"].toString()),
+      data: playArgs,
       url: "https://www.douyu.com/$roomId",
       isRecord: roomInfo["videoLoop"] == 1,
       showTime: showTime,
