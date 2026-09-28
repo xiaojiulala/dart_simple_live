@@ -528,8 +528,6 @@ class LiveRoomController extends PlayerController with WidgetsBindingObserver {
     }
     if (generation != _playerGeneration) return true;
 
-    await player.setVolume(muted.value ? 0 : 100);
-
     // 播放正常维持 15 秒后重置重试计数器，使得每次10分钟断开都能成功续播
     _resetRetryTimer?.cancel();
     _resetRetryTimer = Timer(const Duration(seconds: 15), () {
