@@ -1,7 +1,7 @@
 {
-    "version": "1.7.9",
-    "version_num": 10709,
-    "version_desc": "- 修复斗鱼断流问题\n- 新增斗鱼账号扫码登录与局域网同步支持",
+    "version": "1.8.0",
+    "version_num": 10800,
+    "version_desc": "- 替换热门直播为链接解析，支持B站/斗鱼/虎牙/抖音链接解析与手机扫码快捷投送\n- 引入播放器代际守卫与增强看门狗防卡死自愈机制\n- 同步上游同步服务器更新",
     "prerelease": false,
     "download_url": "https://github.com/June6699/dart_simple_live/releases/tag/tv_v1.7.6"
 }

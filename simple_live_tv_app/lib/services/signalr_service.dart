@@ -15,7 +15,8 @@ enum SignalRConnectionState {
 
 class SignalRService {
   static const int kRoomIdLength = 6;
-  static const String kDefaultUrl =
+  static const String kDefaultUrl = "wss://june6699.top/sync";
+  static const String kCloudflareUrl =
       "wss://simple-live-sync.3439394104.workers.dev/sync";
   static const String kDefaultLocalProxy = "127.0.0.1:51888";
   static const String kDirectProxyValue = "direct";

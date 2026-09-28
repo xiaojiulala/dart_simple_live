@@ -64,6 +64,16 @@ class LiveRoomController extends PlayerController with WidgetsBindingObserver {
   var datetime = "00:00".obs;
   Timer? _resetRetryTimer;
 
+  /// 播放器代际号：避免并发 open 造成解码器/Surface 竞态（卡死、崩溃）
+  int _playerGeneration = 0;
+
+  Timer? _playbackWatchdog;
+  Duration? _lastWatchdogPosition;
+  int _stallSampleCount = 0;
+  int _bufferingSampleCount = 0;
+  bool _watchdogRefreshing = false;
+  DateTime? _lastWatchdogRefreshAt;
+
   void initTimer() {
     Timer.periodic(const Duration(seconds: 1), (timer) {
       var now = DateTime.now();
@@ -479,26 +489,46 @@ class LiveRoomController extends PlayerController with WidgetsBindingObserver {
     }
   }
 
-  void setPlayer({bool refreshUrls = false}) async {
+  Future<bool> setPlayer({bool refreshUrls = false}) async {
+    final generation = ++_playerGeneration;
     if (refreshUrls) {
       var reloaded = await reloadPlayUrls(silent: true);
-      if (!reloaded) {
-        return;
-      }
+      if (generation != _playerGeneration) return true;
+      if (!reloaded) return false;
     }
     if (playUrls.isEmpty ||
         currentLineIndex < 0 ||
         currentLineIndex >= playUrls.length) {
-      return;
+      return false;
     }
     currentLineInfo.value = "线路${currentLineIndex + 1}";
     errorMsg.value = "";
-    player.open(
-      Media(
-        playUrls[currentLineIndex],
-        httpHeaders: playHeaders,
-      ),
-    );
+    if (generation != _playerGeneration) return true;
+
+    // 全平台：停止旧流并等待资源释放，避免解码器/Surface 渲染冲突
+    if (player.state.playing || player.state.playlist.medias.isNotEmpty) {
+      try {
+        await player.stop();
+        await Future.delayed(const Duration(milliseconds: 120));
+      } catch (e, stackTrace) {
+        Log.e("停止旧播放失败: $e", stackTrace);
+      }
+    }
+    if (generation != _playerGeneration) return true;
+
+    try {
+      await player.open(
+        Media(
+          playUrls[currentLineIndex],
+          httpHeaders: playHeaders,
+        ),
+      );
+    } catch (e, stackTrace) {
+      Log.e("打开播放失败: $e", stackTrace);
+    }
+    if (generation != _playerGeneration) return true;
+
+    await player.setVolume(muted.value ? 0 : 100);
 
     // 播放正常维持 15 秒后重置重试计数器，使得每次10分钟断开都能成功续播
     _resetRetryTimer?.cancel();
@@ -507,6 +537,70 @@ class LiveRoomController extends PlayerController with WidgetsBindingObserver {
     });
 
     Log.d("播放链接\r\n：${playUrls[currentLineIndex]}");
+    _startPlaybackWatchdog();
+    return true;
+  }
+
+  void _startPlaybackWatchdog() {
+    _playbackWatchdog?.cancel();
+    _lastWatchdogPosition = null;
+    _stallSampleCount = 0;
+    _bufferingSampleCount = 0;
+    _playbackWatchdog = Timer.periodic(const Duration(seconds: 5), (timer) {
+      if (isBackground || !liveStatus.value) {
+        _lastWatchdogPosition = null;
+        _stallSampleCount = 0;
+        _bufferingSampleCount = 0;
+        return;
+      }
+      if (!player.state.playing) {
+        _lastWatchdogPosition = null;
+        _stallSampleCount = 0;
+        _bufferingSampleCount = 0;
+        return;
+      }
+      final position = player.state.position;
+      final last = _lastWatchdogPosition;
+      final advanced =
+          last == null || position.inMilliseconds - last.inMilliseconds >= 250;
+      final bufferLead = player.state.buffer - position;
+      final bufferExhausted = bufferLead <= const Duration(milliseconds: 350);
+      if (player.state.buffering || bufferExhausted) {
+        _bufferingSampleCount += 1;
+      } else {
+        _bufferingSampleCount = 0;
+      }
+      if (!advanced) {
+        _stallSampleCount += 1;
+      } else {
+        _stallSampleCount = 0;
+      }
+      if ((_stallSampleCount >= 2 || _bufferingSampleCount >= 3) &&
+          !_watchdogRefreshing &&
+          (_lastWatchdogRefreshAt == null ||
+              DateTime.now().difference(_lastWatchdogRefreshAt!) >=
+                  const Duration(seconds: 8))) {
+        _watchdogRefreshing = true;
+        _lastWatchdogRefreshAt = DateTime.now();
+        _stallSampleCount = 0;
+        _bufferingSampleCount = 0;
+        Log.w("检测到播放停滞或持续缓冲卡死，自动刷新播放");
+        _refreshPlayerFromWatchdog().whenComplete(() {
+          _watchdogRefreshing = false;
+        });
+      }
+      _lastWatchdogPosition = position;
+    });
+  }
+
+  Future<void> _refreshPlayerFromWatchdog() async {
+    final reloaded = await setPlayer(refreshUrls: true);
+    if (!reloaded) {
+      Log.w("看门狗刷新失败，尝试切线路恢复");
+      if (playUrls.length > 1) {
+        changePlayLine((currentLineIndex + 1) % playUrls.length);
+      }
+    }
   }
 
   @override
@@ -706,6 +800,7 @@ class LiveRoomController extends PlayerController with WidgetsBindingObserver {
 
   @override
   void onClose() {
+    _playbackWatchdog?.cancel();
     _resetRetryTimer?.cancel();
     liveDanmaku.stop();
     _liveEventFlowTimer?.cancel();

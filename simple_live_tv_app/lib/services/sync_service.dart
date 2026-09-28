@@ -15,6 +15,9 @@ import 'package:simple_live_tv_app/models/db/history.dart';
 import 'package:simple_live_tv_app/services/bilibili_account_service.dart';
 import 'package:simple_live_tv_app/services/db_service.dart';
 import 'package:simple_live_tv_app/services/douyin_account_service.dart';
+import 'package:simple_live_tv_app/app/sites.dart';
+import 'package:simple_live_tv_app/modules/parse/live_url_parser.dart';
+import 'package:simple_live_tv_app/routes/app_navigation.dart';
 import 'package:simple_live_tv_app/services/douyu_account_service.dart';
 import 'package:udp/udp.dart';
 import 'package:shelf/shelf.dart' as shelf;
@@ -157,6 +160,8 @@ class SyncService extends GetxService {
       serverRouter.post('/sync/account/bilibili', _syncBiliAccountReuqest);
       serverRouter.post('/sync/account/douyin', _syncDouyinAccountReuqest);
       serverRouter.post('/sync/account/douyu', _syncDouyuAccountRequest);
+      serverRouter.get('/parse', _serveParseHtmlRequest);
+      serverRouter.post('/api/parse_play', _parsePlayApiRequest);
 
       var server = await shelf_io.serve(
         serverRouter,
@@ -462,6 +467,135 @@ class SyncService extends GetxService {
         'status': false,
         'message': e.toString(),
       });
+    }
+  }
+
+  shelf.Response _serveParseHtmlRequest(shelf.Request request) {
+    const html = '''<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>SimpleLive TV - 投送到电视</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { background-color: #121212; color: #fff; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; padding: 20px; }
+  .container { max-width: 500px; margin: 0 auto; }
+  h2 { font-size: 22px; text-align: center; margin: 16px 0 6px 0; color: #ff6699; }
+  p.tip { color: #888; font-size: 13px; text-align: center; margin-bottom: 20px; }
+  textarea { width: 100%; height: 120px; background: #1e1e1e; border: 1px solid #333; border-radius: 8px; color: #fff; padding: 12px; font-size: 15px; resize: none; outline: none; }
+  textarea:focus { border-color: #ff6699; }
+  button { width: 100%; margin-top: 16px; padding: 14px; background: #ff6699; border: none; border-radius: 8px; color: #fff; font-size: 16px; font-weight: bold; cursor: pointer; }
+  button:disabled { background: #555; }
+  #status { margin-top: 20px; padding: 12px; border-radius: 6px; font-size: 14px; display: none; text-align: center; }
+  .success { background: #1b3a24; color: #4ade80; border: 1px solid #22543d; }
+  .error { background: #3a1b1b; color: #f87171; border: 1px solid #542222; }
+  .formats { margin-top: 24px; padding: 14px; background: #1a1a1a; border-radius: 8px; font-size: 12px; color: #888; line-height: 1.8; }
+</style>
+</head>
+<body>
+<div class="container">
+  <h2>📺 投送链接到电视</h2>
+  <p class="tip">粘贴直播间分享链接，电视将自动跳转播放</p>
+  <textarea id="urlInput" placeholder="在此粘贴哔哩哔哩、斗鱼、虎牙或抖音直播间分享链接..."></textarea>
+  <button id="sendBtn" onclick="sendUrl()">投送到电视播放</button>
+  <div id="status"></div>
+  <div class="formats">
+    支持平台及链接格式：<br>
+    • 哔哩哔哩：live.bilibili.com / b23.tv 短链<br>
+    • 斗鱼直播：douyu.com 房间与专题页面<br>
+    • 虎牙直播：huya.com 房间链接<br>
+    • 抖音直播：live.douyin.com / v.douyin.com 短链
+  </div>
+</div>
+<script>
+async function sendUrl() {
+  const input = document.getElementById('urlInput');
+  const btn = document.getElementById('sendBtn');
+  const status = document.getElementById('status');
+  const val = input.value.trim();
+  if(!val) { alert('请先粘贴链接！'); return; }
+  btn.disabled = true; btn.innerText = '正在投送中...';
+  status.style.display = 'none';
+  try {
+    const resp = await fetch('/api/parse_play', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ url: val })
+    });
+    const res = await resp.json();
+    status.style.display = 'block';
+    if(res.success) {
+      status.className = 'success';
+      status.innerText = '🎉 ' + (res.message || '投送成功，电视正在播放！');
+      input.value = '';
+    } else {
+      status.className = 'error';
+      status.innerText = '❌ 投送失败：' + (res.message || '未知错误');
+    }
+  } catch(e) {
+    status.style.display = 'block';
+    status.className = 'error';
+    status.innerText = '❌ 网络请求异常：' + e;
+  } finally {
+    btn.disabled = false; btn.innerText = '投送到电视播放';
+  }
+}
+</script>
+</body>
+</html>''';
+    return shelf.Response.ok(
+      html,
+      headers: {'content-type': 'text/html; charset=utf-8'},
+    );
+  }
+
+  Future<shelf.Response> _parsePlayApiRequest(shelf.Request request) async {
+    try {
+      final body = await request.readAsString();
+      dynamic data;
+      try {
+        data = json.decode(body);
+      } catch (_) {
+        data = null;
+      }
+      final rawUrl = (data is Map ? data["url"] : body)?.toString() ?? "";
+      if (rawUrl.trim().isEmpty) {
+        return toJsonResponse({'success': false, 'message': '链接不能为空'});
+      }
+
+      final parsed = await LiveUrlParser.parseFromText(rawUrl);
+      if (parsed == null || parsed.roomId.isEmpty) {
+        return toJsonResponse({'success': false, 'message': '无法识别该直播间链接'});
+      }
+      final site = Sites.allSites[parsed.siteId];
+      if (site == null) {
+        return toJsonResponse(
+            {'success': false, 'message': '不支持的平台：${parsed.siteId}'});
+      }
+
+      // 验证房间是否有效，避免电视白屏
+      try {
+        final detail = await site.liveSite.getRoomDetail(roomId: parsed.roomId);
+        if (detail.roomId.isEmpty) {
+          throw '房间信息为空';
+        }
+      } catch (e) {
+        return toJsonResponse({'success': false, 'message': '获取房间信息失败：$e'});
+      }
+
+      // 在主线程安全跳转
+      Future.microtask(() {
+        SmartDialog.showToast("已接收手机投送：${site.name} ${parsed.roomId}");
+        AppNavigator.toLiveRoomDetail(site: site, roomId: parsed.roomId);
+      });
+
+      return toJsonResponse({
+        'success': true,
+        'message': '已投送到电视：${site.name} ${parsed.roomId}',
+      });
+    } catch (e) {
+      return toJsonResponse({'success': false, 'message': e.toString()});
     }
   }
 

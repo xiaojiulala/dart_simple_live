@@ -22,6 +22,8 @@ import 'package:simple_live_tv_app/modules/live_room/live_room_page.dart';
 import 'package:simple_live_tv_app/modules/multi_room/multi_room_controller.dart';
 import 'package:simple_live_tv_app/modules/multi_room/multi_room_models.dart';
 import 'package:simple_live_tv_app/modules/multi_room/multi_room_page.dart';
+import 'package:simple_live_tv_app/modules/parse/parse_controller.dart';
+import 'package:simple_live_tv_app/modules/parse/parse_page.dart';
 import 'package:simple_live_tv_app/modules/search/anchor/search_anchor_controller.dart';
 import 'package:simple_live_tv_app/modules/search/anchor/search_anchor_page.dart';
 import 'package:simple_live_tv_app/modules/search/room/search_room_controller.dart';
@@ -123,6 +125,14 @@ class AppPages {
       page: () => const HotLivePage(),
       bindings: [
         BindingsBuilder.put(() => HotliveController()),
+      ],
+    ),
+    // 链接解析
+    GetPage(
+      name: RoutePath.kParse,
+      page: () => const ParsePage(),
+      bindings: [
+        BindingsBuilder.put(() => ParseController()),
       ],
     ),
     //分类

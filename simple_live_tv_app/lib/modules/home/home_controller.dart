@@ -43,6 +43,10 @@ class HomeController extends BaseController {
     Get.toNamed(RoutePath.kHotLive);
   }
 
+  void toParseLink() {
+    Get.toNamed(RoutePath.kParse);
+  }
+
   void toSearchRoom(String keyword) {
     Get.toNamed(RoutePath.kSearchRoom, arguments: keyword);
   }

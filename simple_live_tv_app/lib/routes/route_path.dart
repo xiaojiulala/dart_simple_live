@@ -39,6 +39,9 @@ class RoutePath {
   /// 热门直播
   static const kHotLive = "/hot_live";
 
+  /// 链接解析
+  static const kParse = "/parse";
+
   /// 分类
   static const kCategory = "/category";
 
