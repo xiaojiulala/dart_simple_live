@@ -195,14 +195,14 @@ class ParsePage extends GetView<ParseController> {
                             title: "连接相同局域网",
                             desc: "确保手机或电脑与本电视连接在同一个 Wi-Fi 或路由器网络下。",
                           ),
-                          AppStyle.vGap20,
+                          AppStyle.vGap16,
                           _buildStepItem(
                             step: "2",
                             icon: Icons.qr_code_scanner,
                             title: "扫码打开控制台",
                             desc: "使用微信、手机浏览器扫描左侧二维码，无需下载任何额外 App 即可秒级开启。",
                           ),
-                          AppStyle.vGap20,
+                          AppStyle.vGap16,
                           _buildStepItem(
                             step: "3",
                             icon: Icons.send_rounded,
@@ -210,7 +210,7 @@ class ParsePage extends GetView<ParseController> {
                             desc:
                                 "在手机中复制直播分享文本或链接，在控制台点击“立即投送”，电视端将自动解析并无缝切台播放！",
                           ),
-                          AppStyle.vGap20,
+                          AppStyle.vGap16,
                           _buildStepItem(
                             step: "4",
                             icon: Icons.favorite,
@@ -302,7 +302,7 @@ class ParsePage extends GetView<ParseController> {
                   fontWeight: FontWeight.bold,
                 ),
               ),
-              AppStyle.vGap6,
+              AppStyle.vGap8,
               Text(
                 desc,
                 style: TextStyle(
