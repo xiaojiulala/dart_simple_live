@@ -67,7 +67,7 @@ class HomePage extends GetView<HomeController> {
                         child: HomeBigButton(
                           autofocus: true,
                           focusNode: AppFocusNode(),
-                          text: "链接解析",
+                          text: "手机投送",
                           iconData: Remix.link,
                           onTap: controller.toParseLink,
                         ),

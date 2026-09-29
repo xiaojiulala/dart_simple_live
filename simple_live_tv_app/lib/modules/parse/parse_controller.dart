@@ -9,28 +9,26 @@ import 'package:simple_live_tv_app/routes/app_navigation.dart';
 import 'package:simple_live_tv_app/services/sync_service.dart';
 
 class ParseController extends GetxController {
-  final TextEditingController urlController = TextEditingController();
-
-  final AppFocusNode inputFocusNode = AppFocusNode();
-  final AppFocusNode pasteBtnFocusNode = AppFocusNode();
-  final AppFocusNode playBtnFocusNode = AppFocusNode();
-  final AppFocusNode clearBtnFocusNode = AppFocusNode();
+  final AppFocusNode backBtnFocusNode = AppFocusNode();
+  final AppFocusNode clipboardBtnFocusNode = AppFocusNode();
 
   final isParsing = false.obs;
-  final lanPushUrl = "".obs;
+  final lanUrl = "".obs;
 
   @override
   void onInit() {
     super.onInit();
     _updateLanUrl();
+    ever(SyncService.instance.ipAddress, (_) => _updateLanUrl());
   }
 
   void _updateLanUrl() {
-    final ip = SyncService.instance.ipAddress.value;
+    final rawIp = SyncService.instance.ipAddress.value;
+    final ip = rawIp.split(';').first.trim();
     if (ip.isNotEmpty) {
-      lanPushUrl.value = "http://$ip:${SyncService.httpPort}/parse";
+      lanUrl.value = "http://$ip:${SyncService.httpPort}";
     } else {
-      lanPushUrl.value = "";
+      lanUrl.value = "";
     }
   }
 
@@ -39,25 +37,20 @@ class ParseController extends GetxController {
       final data = await Clipboard.getData(Clipboard.kTextPlain);
       final text = data?.text?.trim() ?? "";
       if (text.isEmpty) {
-        SmartDialog.showToast("剪贴板内容为空");
+        SmartDialog.showToast("电视剪贴板内容为空");
         return;
       }
-      urlController.text = text;
-      SmartDialog.showToast("已粘贴剪贴板内容");
+      SmartDialog.showToast("已读取电视剪贴板内容");
       await parseAndPlay(text);
     } catch (e) {
       SmartDialog.showToast("读取剪贴板失败：$e");
     }
   }
 
-  void clearInput() {
-    urlController.clear();
-  }
-
   Future<bool> parseAndPlay(String rawText) async {
     final text = rawText.trim();
     if (text.isEmpty) {
-      SmartDialog.showToast("请输入或粘贴直播间链接");
+      SmartDialog.showToast("链接内容为空");
       return false;
     }
 
@@ -83,7 +76,7 @@ class ParseController extends GetxController {
         return false;
       }
 
-      // 预检验证房间是否真实可访问，绝不盲目跳入未经验证的房间导致白屏崩溃
+      // 预检验证房间是否真实可访问
       SmartDialog.showLoading(msg: "正在连接 ${site.name} 直播间...");
       try {
         final roomDetail =
@@ -98,24 +91,15 @@ class ParseController extends GetxController {
       }
 
       SmartDialog.dismiss(status: SmartStatus.loading);
+      SmartDialog.showToast("正在进入 ${site.name} 直播间...");
       AppNavigator.toLiveRoomDetail(site: site, roomId: parsed.roomId);
       return true;
     } catch (e) {
       SmartDialog.dismiss(status: SmartStatus.loading);
-      SmartDialog.showToast("解析链接发生异常：$e");
+      SmartDialog.showToast("解析出错：$e");
       return false;
     } finally {
       isParsing.value = false;
     }
-  }
-
-  @override
-  void onClose() {
-    urlController.dispose();
-    inputFocusNode.dispose();
-    pasteBtnFocusNode.dispose();
-    playBtnFocusNode.dispose();
-    clearBtnFocusNode.dispose();
-    super.onClose();
   }
 }
