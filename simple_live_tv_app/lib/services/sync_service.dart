@@ -546,129 +546,223 @@ class SyncService extends GetxService {
 
   shelf.Response _serveWebDashboardRequest(shelf.Request request) {
     const html = '''<!DOCTYPE html>
-<html>
+<html lang="zh-CN">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="theme-color" content="#121212">
+<meta name="format-detection" content="telephone=no">
 <title>SimpleLive TV 控制台</title>
 <style>
-  * { box-sizing: border-box; margin: 0; padding: 0; }
-  body {
-    background-color: #121212;
-    color: #e0e0e0;
-    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-    padding: 16px;
-    line-height: 1.5;
+  :root {
+    --primary: #ff6699;
+    --primary-hover: #ff4d88;
+    --bg: #121212;
+    --card: #1c1c1e;
+    --card-border: #2c2c2e;
+    --input-bg: #252528;
+    --text: #f2f2f7;
+    --text-sub: #8e8e93;
   }
-  .container { max-width: 680px; margin: 0 auto; }
-  header { text-align: center; margin-bottom: 20px; }
-  h1 { font-size: 22px; color: #ff6699; margin-bottom: 4px; display: flex; align-items: center; justify-content: center; gap: 8px; }
-  .badge-dev { font-size: 12px; color: #888; }
+  * {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+    -webkit-tap-highlight-color: transparent;
+  }
+  body {
+    background-color: var(--bg);
+    color: var(--text);
+    font-family: -apple-system, BlinkMacSystemFont, "PingFang SC", "Segoe UI", Roboto, "Helvetica Neue", sans-serif;
+    padding: max(16px, env(safe-area-inset-top)) max(16px, env(safe-area-inset-right)) max(28px, env(safe-area-inset-bottom)) max(16px, env(safe-area-inset-left));
+    line-height: 1.5;
+    -webkit-font-smoothing: antialiased;
+  }
+  .container {
+    max-width: 600px;
+    margin: 0 auto;
+    width: 100%;
+  }
+  header {
+    text-align: center;
+    margin-bottom: 16px;
+  }
+  h1 {
+    font-size: 20px;
+    color: var(--primary);
+    margin-bottom: 4px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    font-weight: 700;
+  }
+  .badge-dev {
+    font-size: 12px;
+    color: var(--text-sub);
+  }
 
-  /* Navigation Tabs */
-  .tabs { display: flex; gap: 8px; margin-bottom: 18px; border-bottom: 1px solid #2a2a2a; padding-bottom: 8px; }
+  /* iOS Segmented Tabs (Sticky) */
+  .tabs {
+    display: flex;
+    background: #252528;
+    border-radius: 12px;
+    padding: 4px;
+    gap: 4px;
+    margin-bottom: 16px;
+    position: sticky;
+    top: max(8px, env(safe-area-inset-top));
+    z-index: 100;
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
+  }
   .tab-btn {
     flex: 1;
     background: transparent;
     border: none;
-    color: #888;
-    font-size: 15px;
+    color: var(--text-sub);
+    font-size: 14px;
     font-weight: 600;
     padding: 10px 4px;
     cursor: pointer;
-    border-radius: 6px;
-    transition: all 0.2s;
+    border-radius: 8px;
+    transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 4px;
   }
-  .tab-btn.active { background: #1e1e1e; color: #ff6699; }
+  .tab-btn.active {
+    background: var(--primary);
+    color: #fff;
+    box-shadow: 0 2px 8px rgba(255, 102, 153, 0.35);
+  }
 
   /* Cards */
   .card {
-    background: #1a1a1a;
-    border: 1px solid #2c2c2c;
-    border-radius: 10px;
-    padding: 18px;
-    margin-bottom: 16px;
+    background: var(--card);
+    border: 1px solid var(--card-border);
+    border-radius: 14px;
+    padding: 16px;
+    margin-bottom: 14px;
   }
-  .card-title { font-size: 16px; font-weight: bold; margin-bottom: 12px; color: #fff; display: flex; align-items: center; justify-content: space-between; }
+  .card-title {
+    font-size: 15px;
+    font-weight: 700;
+    margin-bottom: 12px;
+    color: #fff;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+  .card-desc {
+    font-size: 13px;
+    color: var(--text-sub);
+    margin-bottom: 12px;
+  }
+
+  /* Form Elements (Prevent iOS Auto-Zoom with 16px) */
+  input, textarea, select, button {
+    font-size: 16px !important;
+    font-family: inherit;
+  }
+  textarea {
+    width: 100%;
+    height: 100px;
+    background: var(--input-bg);
+    border: 1px solid var(--card-border);
+    border-radius: 10px;
+    color: #fff;
+    padding: 12px;
+    outline: none;
+    margin-bottom: 10px;
+    resize: none;
+    -webkit-appearance: none;
+    line-height: 1.4;
+  }
+  textarea:focus {
+    border-color: var(--primary);
+  }
+
+  /* Buttons */
   .btn {
+    min-height: 46px;
+    padding: 10px 18px;
+    border-radius: 10px;
+    font-weight: 600;
+    font-size: 15px !important;
+    cursor: pointer;
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    padding: 10px 16px;
-    border-radius: 6px;
-    font-size: 14px;
-    font-weight: 600;
-    cursor: pointer;
+    gap: 6px;
     text-decoration: none;
     border: none;
-    transition: opacity 0.2s;
+    transition: transform 0.1s, opacity 0.1s;
+    user-select: none;
   }
-  .btn:hover { opacity: 0.9; }
-  .btn-primary { background: #ff6699; color: #fff; }
-  .btn-secondary { background: #2a2a2a; color: #fff; border: 1px solid #444; }
-  .btn-outline { background: transparent; color: #ff6699; border: 1px solid #ff6699; }
+  .btn:active {
+    transform: scale(0.97);
+    opacity: 0.85;
+  }
+  .btn-primary { background: var(--primary); color: #fff; }
+  .btn-secondary { background: #2c2c2e; color: #fff; border: 1px solid #444; }
+  .btn-outline { background: transparent; color: var(--primary); border: 1px solid var(--primary); }
   .btn-block { width: 100%; }
-  .btn-group { display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 14px; }
-  .btn-sm { padding: 6px 12px; font-size: 12px; }
+  .btn-sm { min-height: 36px; padding: 6px 12px; font-size: 13px !important; border-radius: 8px; }
+  .btn-row { display: flex; gap: 8px; margin-bottom: 10px; flex-wrap: wrap; }
+  .btn-group { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 12px; }
 
-  textarea {
-    width: 100%;
-    height: 110px;
-    background: #121212;
-    border: 1px solid #333;
-    border-radius: 6px;
-    color: #fff;
-    padding: 10px;
-    font-size: 13px;
-    font-family: monospace;
-    resize: vertical;
-    outline: none;
-    margin-bottom: 12px;
-  }
-  textarea:focus { border-color: #ff6699; }
-
-  /* Radio Group */
-  .radio-group {
-    background: #121212;
-    border: 1px solid #282828;
-    border-radius: 6px;
-    padding: 10px;
-    margin-bottom: 12px;
-    font-size: 13px;
-  }
-  .radio-group label {
+  /* Radio Card */
+  .radio-card {
     display: flex;
-    align-items: center;
-    gap: 8px;
+    align-items: flex-start;
+    gap: 10px;
+    padding: 12px;
+    background: var(--input-bg);
+    border-radius: 10px;
+    border: 1px solid var(--card-border);
+    margin-bottom: 8px;
     cursor: pointer;
-    margin-bottom: 6px;
+    font-size: 14px;
+    transition: border-color 0.2s;
   }
-  .radio-group label:last-child { margin-bottom: 0; }
-  .radio-group input[type="radio"] { accent-color: #ff6699; }
+  .radio-card input {
+    margin-top: 2px;
+    accent-color: var(--primary);
+    width: 18px;
+    height: 18px;
+    flex-shrink: 0;
+  }
 
+  /* Status message */
   .status-msg {
-    margin-top: 10px;
-    padding: 10px 14px;
-    border-radius: 6px;
-    font-size: 13px;
+    margin-top: 12px;
+    padding: 12px 14px;
+    border-radius: 10px;
+    font-size: 14px;
     display: none;
+    word-break: break-word;
   }
   .status-success { background: #1b3a24; color: #4ade80; border: 1px solid #22543d; display: block; }
   .status-error { background: #3a1b1b; color: #f87171; border: 1px solid #542222; display: block; }
 
   /* Follow item list */
   .follow-list {
-    max-height: 320px;
+    max-height: 380px;
     overflow-y: auto;
-    border: 1px solid #282828;
-    border-radius: 6px;
-    background: #121212;
+    border: 1px solid var(--card-border);
+    border-radius: 10px;
+    background: var(--input-bg);
+    -webkit-overflow-scrolling: touch;
   }
   .follow-item {
     display: flex;
     align-items: center;
-    padding: 10px;
-    border-bottom: 1px solid #1f1f1f;
+    padding: 12px;
+    border-bottom: 1px solid #222225;
     gap: 12px;
   }
   .follow-item:last-child { border-bottom: none; }
@@ -677,24 +771,26 @@ class SyncService extends GetxService {
     padding: 2px 6px;
     border-radius: 4px;
     font-weight: bold;
+    flex-shrink: 0;
   }
   .site-bilibili { background: #00aeec; color: #fff; }
   .site-douyu { background: #ff5d23; color: #fff; }
   .site-huya { background: #ffaa00; color: #000; }
   .site-douyin { background: #fe2c55; color: #fff; }
   .site-other { background: #555; color: #fff; }
-  .follow-avatar { width: 36px; height: 36px; border-radius: 50%; object-fit: cover; background: #2a2a2a; }
+  .follow-avatar { width: 40px; height: 40px; border-radius: 50%; object-fit: cover; background: #2c2c2e; flex-shrink: 0; }
   .follow-info { flex: 1; min-width: 0; }
-  .follow-name { font-size: 14px; font-weight: bold; color: #fff; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-  .follow-sub { font-size: 12px; color: #777; }
+  .follow-name { font-size: 14px; font-weight: 600; color: #fff; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .follow-sub { font-size: 12px; color: var(--text-sub); }
 
   .tip-box {
-    background: #141414;
-    border-radius: 6px;
+    background: #19191b;
+    border-radius: 10px;
     padding: 12px;
     font-size: 12px;
-    color: #888;
+    color: var(--text-sub);
     line-height: 1.8;
+    margin-top: 10px;
   }
 </style>
 </head>
@@ -702,27 +798,54 @@ class SyncService extends GetxService {
 <div class="container">
   <header>
     <h1>📺 SimpleLive TV 控制台</h1>
-    <div class="badge-dev" id="headerInfo">Simple Live TV 内网管理与投送平台</div>
+    <div class="badge-dev" id="headerInfo">电视端管理与投送平台</div>
   </header>
 
+  <!-- 顶部导航切换标签：手机扫码默认首先展示“投送直播” -->
   <div class="tabs">
-    <button class="tab-btn active" id="tabBtn-follow" onclick="switchTab('follow')">⭐️ 关注管理</button>
-    <button class="tab-btn" id="tabBtn-push" onclick="switchTab('push')">🚀 投送直播</button>
+    <button class="tab-btn active" id="tabBtn-push" onclick="switchTab('push')">🚀 投送直播</button>
+    <button class="tab-btn" id="tabBtn-follow" onclick="switchTab('follow')">⭐️ 关注管理</button>
     <button class="tab-btn" id="tabBtn-history" onclick="switchTab('history')">🕒 历史记录</button>
   </div>
 
-  <!-- 关注管理页面 -->
-  <div id="tab-follow">
+  <!-- 1. 投送直播页面（移动端核心功能，默认打开） -->
+  <div id="tab-push">
+    <div class="card">
+      <div class="card-title">
+        <span>🚀 投送直播间到电视</span>
+      </div>
+      <div class="card-desc">粘贴直播分享链接或口令，电视将立即自动切换开播：</div>
+      <div class="btn-row">
+        <button type="button" onclick="pasteTo('urlInput')" class="btn btn-secondary btn-sm">📋 粘贴剪贴板</button>
+        <button type="button" onclick="clearInput('urlInput')" class="btn btn-secondary btn-sm">清空</button>
+      </div>
+      <textarea id="urlInput" placeholder="在此粘贴哔哩哔哩、斗鱼、虎牙或抖音直播间分享链接或口令..."></textarea>
+      <button id="sendBtn" onclick="sendUrl()" class="btn btn-primary btn-block">立即投送并播放</button>
+      <div id="pushStatus" class="status-msg"></div>
+    </div>
+
+    <div class="tip-box">
+      <b>💡 支持平台及链接说明：</b><br>
+      • <b>哔哩哔哩</b>：live.bilibili.com / b23.tv 短链<br>
+      • <b>斗鱼直播</b>：douyu.com 房间及专题页链接<br>
+      • <b>虎牙直播</b>：huya.com 房间链接<br>
+      • <b>抖音直播</b>：live.douyin.com / v.douyin.com 短链<br>
+      • 手机分享时附带的中文文案系统会自动智能识别过滤。
+    </div>
+  </div>
+
+  <!-- 2. 关注管理页面 -->
+  <div id="tab-follow" style="display:none;">
     <div class="card">
       <div class="card-title">
         <span>📥 导出关注</span>
-        <span style="font-size:13px;color:#ff6699;" id="followTotalBadge">关注数：--</span>
+        <span style="font-size:13px;color:var(--primary);" id="followTotalBadge">关注数：--</span>
       </div>
-      <p style="font-size:13px;color:#888;margin-bottom:12px;">直接下载或复制 JSON 格式关注备份文件：</p>
+      <div class="card-desc">下载或一键复制 JSON 格式关注备份：</div>
       <div class="btn-group">
-        <a href="/api/export/follow" class="btn btn-primary" download="simple_live_tv_follows.json">⬇️ 下载关注 JSON</a>
-        <button type="button" onclick="copyFollowJson()" class="btn btn-secondary">📋 复制全部 JSON</button>
-        <button type="button" onclick="loadFollows()" class="btn btn-secondary">🔄 刷新列表</button>
+        <a href="/api/export/follow" class="btn btn-primary btn-sm" download="simple_live_tv_follows.json">⬇️ 下载关注 JSON</a>
+        <button type="button" onclick="copyFollowJson()" class="btn btn-secondary btn-sm">📋 复制全部 JSON</button>
+        <button type="button" onclick="loadFollows()" class="btn btn-secondary btn-sm">🔄 刷新列表</button>
       </div>
       <div id="exportCopyStatus" class="status-msg"></div>
     </div>
@@ -731,25 +854,31 @@ class SyncService extends GetxService {
       <div class="card-title">
         <span>📤 导入关注到电视</span>
       </div>
-      <div style="margin-bottom:12px;">
-        <input type="file" id="followFileInput" accept=".json,application/json" onchange="handleFileSelect(event)" style="display:none">
-        <button type="button" onclick="document.getElementById('followFileInput').click()" class="btn btn-outline btn-sm">📁 从手机/电脑选择 .json 文件</button>
-        <span id="fileName" style="font-size:12px;color:#aaa;margin-left:8px;"></span>
+      <div class="btn-row">
+        <input type="file" id="followFileInput" accept=".json,application/json,text/plain,*/*" onchange="handleFileSelect(event)" style="display:none">
+        <button type="button" onclick="document.getElementById('followFileInput').click()" class="btn btn-outline btn-sm">📁 选择 .json 备份文件</button>
+        <button type="button" onclick="pasteTo('followInput')" class="btn btn-secondary btn-sm">📋 粘贴剪贴板</button>
+        <button type="button" onclick="clearInput('followInput')" class="btn btn-secondary btn-sm">清空</button>
       </div>
-      <textarea id="followInput" placeholder="在此粘贴关注列表 JSON 数据，或点击上方直接选择 .json 文件..."></textarea>
+      <div id="fileName" style="font-size:12px;color:var(--text-sub);margin-bottom:8px;"></div>
+      <textarea id="followInput" placeholder="在此粘贴关注列表 JSON 数据，或选择上方 .json 备份文件..."></textarea>
       
-      <div class="radio-group">
-        <label>
-          <input type="radio" name="importMode" value="0" checked>
-          <span><b>增量合并（推荐）</b>：保留电视现有关注，仅添加新关注或更新</span>
-        </label>
-        <label>
-          <input type="radio" name="importMode" value="1">
-          <span><b>覆盖替换</b>：清空电视现有关注，完全替换为导入列表</span>
-        </label>
+      <div class="radio-card" onclick="document.getElementById('mode0').checked=true">
+        <input type="radio" name="importMode" id="mode0" value="0" checked>
+        <div>
+          <b>增量合并（推荐）</b><br>
+          <span style="font-size:12px;color:var(--text-sub);">保留电视现有关注，仅添加新关注主播或更新信息</span>
+        </div>
+      </div>
+      <div class="radio-card" onclick="document.getElementById('mode1').checked=true">
+        <input type="radio" name="importMode" id="mode1" value="1">
+        <div>
+          <b>覆盖替换</b><br>
+          <span style="font-size:12px;color:var(--text-sub);">清空电视现有关注，完全替换为导入的关注列表</span>
+        </div>
       </div>
 
-      <button id="importBtn" onclick="submitImportFollow()" class="btn btn-primary btn-block">确认导入到电视</button>
+      <button id="importBtn" onclick="submitImportFollow()" class="btn btn-primary btn-block" style="margin-top:8px;">确认导入到电视</button>
       <div id="importStatus" class="status-msg"></div>
     </div>
 
@@ -763,38 +892,19 @@ class SyncService extends GetxService {
     </div>
   </div>
 
-  <!-- 投送直播页面 -->
-  <div id="tab-push" style="display:none;">
-    <div class="card">
-      <div class="card-title"><span>🚀 投送直播间到电视</span></div>
-      <p style="font-size:13px;color:#888;margin-bottom:12px;">粘贴直播间链接或分享文本，电视端将自动解析并直接播放：</p>
-      <textarea id="urlInput" placeholder="在此粘贴哔哩哔哩、斗鱼、虎牙或抖音直播间分享链接或口令..."></textarea>
-      <button id="sendBtn" onclick="sendUrl()" class="btn btn-primary btn-block">立即投送并播放</button>
-      <div id="pushStatus" class="status-msg"></div>
-    </div>
-
-    <div class="tip-box">
-      <b>支持平台及链接说明：</b><br>
-      • <b>哔哩哔哩</b>：live.bilibili.com / b23.tv 短链<br>
-      • <b>斗鱼直播</b>：douyu.com 房间及专题页链接<br>
-      • <b>虎牙直播</b>：huya.com 房间链接<br>
-      • <b>抖音直播</b>：live.douyin.com / v.douyin.com 短链
-    </div>
-  </div>
-
-  <!-- 历史记录页面 -->
+  <!-- 3. 历史记录页面 -->
   <div id="tab-history" style="display:none;">
     <div class="card">
       <div class="card-title"><span>🕒 观看历史导出</span></div>
-      <p style="font-size:13px;color:#888;margin-bottom:14px;">下载电视端的观看历史记录 JSON 备份：</p>
-      <a href="/api/export/history" class="btn btn-primary" download="simple_live_tv_history.json">⬇️ 下载观看历史 JSON</a>
+      <div class="card-desc">下载电视端的观看历史记录 JSON 备份文件：</div>
+      <a href="/api/export/history" class="btn btn-primary btn-block" download="simple_live_tv_history.json">⬇️ 下载观看历史 JSON</a>
     </div>
   </div>
 </div>
 
 <script>
 function switchTab(name) {
-  ['follow', 'push', 'history'].forEach(t => {
+  ['push', 'follow', 'history'].forEach(t => {
     const el = document.getElementById('tab-' + t);
     const btn = document.getElementById('tabBtn-' + t);
     if (el) el.style.display = (t === name) ? 'block' : 'none';
@@ -803,6 +913,29 @@ function switchTab(name) {
       else btn.classList.remove('active');
     }
   });
+  if (name === 'follow') {
+    loadFollows();
+  }
+}
+
+function clearInput(id) {
+  document.getElementById(id).value = '';
+}
+
+async function pasteTo(id) {
+  const input = document.getElementById(id);
+  try {
+    if (navigator.clipboard && navigator.clipboard.readText) {
+      const text = await navigator.clipboard.readText();
+      if (text && text.trim()) {
+        input.value = text.trim();
+        return;
+      }
+    }
+    alert('请长按输入框选择“粘贴”');
+  } catch (_) {
+    alert('请长按输入框直接粘贴');
+  }
 }
 
 function getSiteBadge(siteId) {
@@ -854,7 +987,7 @@ async function loadFollows() {
 function handleFileSelect(evt) {
   const file = evt.target.files[0];
   if(!file) return;
-  document.getElementById('fileName').innerText = file.name;
+  document.getElementById('fileName').innerText = '已选择：' + file.name;
   const reader = new FileReader();
   reader.onload = function(e) {
     document.getElementById('followInput').value = e.target.result;
@@ -867,14 +1000,25 @@ async function copyFollowJson() {
   try {
     const resp = await fetch('/api/export/follow');
     const text = await resp.text();
-    if(navigator.clipboard && navigator.clipboard.writeText) {
-      await navigator.clipboard.writeText(text);
-    } else {
+    let copied = false;
+    if(navigator.clipboard && window.isSecureContext) {
+      try {
+        await navigator.clipboard.writeText(text);
+        copied = true;
+      } catch(_) {}
+    }
+    if(!copied) {
       const ta = document.createElement('textarea');
       ta.value = text;
+      ta.style.position = 'fixed';
+      ta.style.left = '-9999px';
+      ta.style.top = '0';
+      ta.setAttribute('readonly', '');
       document.body.appendChild(ta);
+      ta.focus();
       ta.select();
-      document.execCommand('copy');
+      ta.setSelectionRange(0, 99999);
+      copied = document.execCommand('copy');
       document.body.removeChild(ta);
     }
     status.className = 'status-msg status-success';
@@ -964,11 +1108,6 @@ async function sendUrl() {
     btn.innerText = '立即投送并播放';
   }
 }
-
-// 页面加载完成后拉取一次关注
-document.addEventListener('DOMContentLoaded', () => {
-  loadFollows();
-});
 </script>
 </body>
 </html>''';
