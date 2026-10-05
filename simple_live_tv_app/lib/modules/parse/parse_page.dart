@@ -248,6 +248,9 @@ class ParsePage extends GetView<ParseController> {
                                 AppStyle.hGap12,
                                 _buildPlatformTag(
                                     "抖音直播", const Color(0xFFFE2C55)),
+                                AppStyle.hGap12,
+                                _buildPlatformTag(
+                                    "小红书", const Color(0xFFFF2442)),
                               ],
                             ),
                           ),

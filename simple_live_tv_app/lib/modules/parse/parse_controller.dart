@@ -65,7 +65,7 @@ class ParseController extends GetxController {
       final parsed = await LiveUrlParser.parseFromText(text);
       if (parsed == null || parsed.roomId.isEmpty) {
         SmartDialog.dismiss(status: SmartStatus.loading);
-        SmartDialog.showToast("无法识别该直播链接\n支持哔哩哔哩/斗鱼/虎牙/抖音");
+        SmartDialog.showToast("无法识别该直播链接\n支持哔哩哔哩/斗鱼/虎牙/抖音/小红书");
         return false;
       }
 

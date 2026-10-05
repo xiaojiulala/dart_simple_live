@@ -50,7 +50,10 @@ class LiveUrlParser {
       final uri = Uri.tryParse(url.startsWith("http") ? url : "https://$url");
       if (uri == null) return false;
       final host = uri.host.toLowerCase();
-      return host == "b23.tv" || host == "v.douyin.com";
+      return host == "b23.tv" ||
+          host == "v.douyin.com" ||
+          host == "xhslink.com" ||
+          host.endsWith(".xhslink.com");
     } catch (_) {
       return false;
     }
@@ -186,6 +189,37 @@ class LiveUrlParser {
         if (_numericPattern.hasMatch(roomId)) {
           return _buildResult(Constant.kDouyin, roomId, original);
         }
+      }
+    }
+
+    // 5. 小红书 (xiaohongshu.com / xhsdiscover://)
+    if (host == "xiaohongshu.com" || host.endsWith(".xiaohongshu.com")) {
+      final liveIdx = segments.indexOf("livestream");
+      if (liveIdx >= 0) {
+        for (int i = segments.length - 1; i > liveIdx; i--) {
+          if (_numericPattern.hasMatch(segments[i])) {
+            return _buildResult(Constant.kXiaohongshu, segments[i], original);
+          }
+        }
+      }
+      final hinaIdx = segments.indexOf("hina");
+      if (hinaIdx >= 0 && segments.length > hinaIdx + 2) {
+        if (segments[hinaIdx + 1] == "livestream" &&
+            _numericPattern.hasMatch(segments[hinaIdx + 2])) {
+          return _buildResult(
+              Constant.kXiaohongshu, segments[hinaIdx + 2], original);
+        }
+      }
+      final roomId = uri.queryParameters["room_id"] ?? "";
+      if (_numericPattern.hasMatch(roomId)) {
+        return _buildResult(Constant.kXiaohongshu, roomId, original);
+      }
+    }
+
+    if (uri.scheme == "xhsdiscover") {
+      final roomId = uri.queryParameters["room_id"] ?? "";
+      if (_numericPattern.hasMatch(roomId)) {
+        return _buildResult(Constant.kXiaohongshu, roomId, original);
       }
     }
 

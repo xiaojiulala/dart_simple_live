@@ -31,10 +31,18 @@ class Sites {
       liveSite: DouyinSite(),
       index: 3,
     ),
+    "xiaohongshu": Site(
+      id: "xiaohongshu",
+      logo: "assets/images/xiaohongshu.png",
+      name: "小红书",
+      liveSite: XiaohongshuSite(),
+      index: 4,
+    ),
   };
 
+  /// 供分类大厅与热门直播浏览的平台（排除无官方公共类目推荐的大厅平台）
   static List<Site> get supportSites {
-    return allSites.values.toList();
+    return allSites.values.where((s) => s.id != "xiaohongshu").toList();
   }
 }
 

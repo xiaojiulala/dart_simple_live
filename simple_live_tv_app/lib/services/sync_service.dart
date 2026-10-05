@@ -777,6 +777,7 @@ class SyncService extends GetxService {
   .site-douyu { background: #ff5d23; color: #fff; }
   .site-huya { background: #ffaa00; color: #000; }
   .site-douyin { background: #fe2c55; color: #fff; }
+  .site-xiaohongshu { background: #ff2442; color: #fff; }
   .site-other { background: #555; color: #fff; }
   .follow-avatar { width: 40px; height: 40px; border-radius: 50%; object-fit: cover; background: #2c2c2e; flex-shrink: 0; }
   .follow-info { flex: 1; min-width: 0; }
@@ -819,7 +820,7 @@ class SyncService extends GetxService {
         <button type="button" onclick="pasteTo('urlInput')" class="btn btn-secondary btn-sm">📋 粘贴剪贴板</button>
         <button type="button" onclick="clearInput('urlInput')" class="btn btn-secondary btn-sm">清空</button>
       </div>
-      <textarea id="urlInput" placeholder="在此粘贴哔哩哔哩、斗鱼、虎牙或抖音直播间分享链接或口令..."></textarea>
+      <textarea id="urlInput" placeholder="在此粘贴哔哩哔哩、斗鱼、虎牙、抖音或小红书直播间分享链接或口令..."></textarea>
       <button id="sendBtn" onclick="sendUrl()" class="btn btn-primary btn-block">立即投送并播放</button>
       <div id="pushStatus" class="status-msg"></div>
     </div>
@@ -830,6 +831,7 @@ class SyncService extends GetxService {
       • <b>斗鱼直播</b>：douyu.com 房间及专题页链接<br>
       • <b>虎牙直播</b>：huya.com 房间链接<br>
       • <b>抖音直播</b>：live.douyin.com / v.douyin.com 短链<br>
+      • <b>小红书直播</b>：xhslink.com 短链 / xiaohongshu.com 直播链接<br>
       • 手机分享时附带的中文文案系统会自动智能识别过滤。
     </div>
   </div>
@@ -944,6 +946,7 @@ function getSiteBadge(siteId) {
     case 'douyu': return '<span class="site-tag site-douyu">斗鱼</span>';
     case 'huya': return '<span class="site-tag site-huya">虎牙</span>';
     case 'douyin': return '<span class="site-tag site-douyin">抖音</span>';
+    case 'xiaohongshu': return '<span class="site-tag site-xiaohongshu">小红书</span>';
     default: return '<span class="site-tag site-other">' + (siteId || '未知') + '</span>';
   }
 }
