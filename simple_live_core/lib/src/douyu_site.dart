@@ -188,18 +188,18 @@ class DouyuSite implements LiveSite {
 
     var cdns = <String>[];
     for (var item in payload["cdnsWithName"]) {
-      cdns.add(item["cdn"].toString());
-    }
-
-    // 如果cdn以scdn开头，将其放到最后
-    cdns.sort((a, b) {
-      if (a.startsWith("scdn") && !b.startsWith("scdn")) {
-        return 1;
-      } else if (!a.startsWith("scdn") && b.startsWith("scdn")) {
-        return -1;
+      final cdnName = item["cdn"].toString();
+      // scdn 为点对点/边缘缓存节点，无有效SSL证书且极易超时，剔除避免播放器切到死线路
+      if (!cdnName.startsWith("scdn")) {
+        cdns.add(cdnName);
       }
-      return 0;
-    });
+    }
+    // 兜底：若剔除后无其他CDN，再保留原始CDN
+    if (cdns.isEmpty) {
+      for (var item in payload["cdnsWithName"]) {
+        cdns.add(item["cdn"].toString());
+      }
+    }
 
     for (var item in payload["multirates"]) {
       qualities.add(
@@ -395,22 +395,55 @@ class DouyuSite implements LiveSite {
   }
 
   Future<Map> _getRoomInfo(String roomId) async {
-    var result = await HttpClient.instance.getJson(
-      "https://www.douyu.com/betard/$roomId",
-      queryParameters: {},
-      header: {
-        'referer': 'https://www.douyu.com/$roomId',
-        'user-agent':
-            'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/114.0.0.0 Safari/537.36 Edg/114.0.1823.43',
-      },
-    );
-    Map roomInfo;
+    dynamic result;
+    try {
+      result = await HttpClient.instance.getJson(
+        "https://www.douyu.com/betard/$roomId",
+        queryParameters: {},
+        header: {
+          'referer': 'https://www.douyu.com/$roomId',
+          'user-agent':
+              'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/114.0.0.0 Safari/537.36 Edg/114.0.1823.43',
+        },
+      );
+    } catch (_) {}
+
+    Map? roomInfo;
     if (result is String) {
-      roomInfo = json.decode(result)["room"];
-    } else {
+      try {
+        roomInfo = json.decode(result)["room"];
+      } catch (_) {}
+    } else if (result is Map) {
       roomInfo = result["room"];
     }
+
+    // 靓号/别名支持：若 betard 返回错误页或无 room 信息，从房间网页源码中解析真实 roomID 并重试
+    if (roomInfo == null) {
+      final realRoomId = await _resolveRealRoomId(roomId);
+      if (realRoomId.isNotEmpty && realRoomId != roomId) {
+        return _getRoomInfo(realRoomId);
+      }
+      throw CoreError("读取斗鱼房间信息失败");
+    }
     return roomInfo;
+  }
+
+  Future<String> _resolveRealRoomId(String roomId) async {
+    try {
+      final html = await HttpClient.instance.getText(
+        "https://www.douyu.com/$roomId",
+        header: {
+          'user-agent':
+              'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36',
+        },
+      );
+      final match = RegExp(r'roomID\s*:\s*(\d+)').firstMatch(html) ??
+          RegExp(r'"room_id":\s*(\d+)').firstMatch(html) ??
+          RegExp(r'"rid":\s*(\d+)').firstMatch(html);
+      return match?.group(1) ?? "";
+    } catch (_) {
+      return "";
+    }
   }
 
   //生成指定长度的16进制随机字符串
