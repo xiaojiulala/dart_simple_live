@@ -170,6 +170,9 @@ class SyncService extends GetxService {
       serverRouter.post('/sync/account/bilibili', _syncBiliAccountReuqest);
       serverRouter.post('/sync/account/douyin', _syncDouyinAccountReuqest);
       serverRouter.post('/sync/account/douyu', _syncDouyuAccountRequest);
+      serverRouter.get('/api/account/status', _getAccountStatusRequest);
+      serverRouter.post('/api/account/douyu/logout', _logoutDouyuAccountRequest);
+      serverRouter.post('/api/account/bilibili/logout', _logoutBiliAccountRequest);
       serverRouter.get('/parse', _serveWebDashboardRequest);
       serverRouter.get('/parse/', _serveWebDashboardRequest);
       serverRouter.post('/api/parse_play', _parsePlayApiRequest);
@@ -544,6 +547,35 @@ class SyncService extends GetxService {
     }
   }
 
+  Future<shelf.Response> _getAccountStatusRequest(
+      shelf.Request request) async {
+    return toJsonResponse({
+      'bilibili': {
+        'logined': BiliBiliAccountService.instance.logined.value,
+        'name': BiliBiliAccountService.instance.name.value,
+      },
+      'douyu': {
+        'logined': DouyuAccountService.instance.logined.value,
+        'name': DouyuAccountService.instance.name.value,
+        'uid': DouyuAccountService.instance.uid,
+      },
+    });
+  }
+
+  Future<shelf.Response> _logoutDouyuAccountRequest(
+      shelf.Request request) async {
+    DouyuAccountService.instance.logout();
+    SmartDialog.showToast('已退出斗鱼账号');
+    return toJsonResponse({'status': true, 'message': 'success'});
+  }
+
+  Future<shelf.Response> _logoutBiliAccountRequest(
+      shelf.Request request) async {
+    BiliBiliAccountService.instance.logout();
+    SmartDialog.showToast('已退出B站账号');
+    return toJsonResponse({'status': true, 'message': 'success'});
+  }
+
   shelf.Response _serveWebDashboardRequest(shelf.Request request) {
     const html = '''<!DOCTYPE html>
 <html lang="zh-CN">
@@ -806,6 +838,7 @@ class SyncService extends GetxService {
   <div class="tabs">
     <button class="tab-btn active" id="tabBtn-push" onclick="switchTab('push')">🚀 投送直播</button>
     <button class="tab-btn" id="tabBtn-follow" onclick="switchTab('follow')">⭐️ 关注管理</button>
+    <button class="tab-btn" id="tabBtn-account" onclick="switchTab('account')">👤 账号管理</button>
     <button class="tab-btn" id="tabBtn-history" onclick="switchTab('history')">🕒 历史记录</button>
   </div>
 
@@ -894,7 +927,42 @@ class SyncService extends GetxService {
     </div>
   </div>
 
-  <!-- 3. 历史记录页面 -->
+  <!-- 3. 账号管理页面 -->
+  <div id="tab-account" style="display:none;">
+    <div class="card">
+      <div class="card-title">
+        <span>🐟 斗鱼账号与 Cookie</span>
+        <span id="douyuBadge" class="badge-dev" style="font-size:12px;">查询中...</span>
+      </div>
+      <div class="card-desc" id="douyuStatusDesc" style="margin-bottom:8px;">提示：未登录时最高画质由于斗鱼防盗链限制会在几分钟后掐流断连；登录后可享永久不断流租约。</div>
+      <div class="btn-row">
+        <button type="button" onclick="pasteTo('douyuCookieInput')" class="btn btn-secondary btn-sm">📋 粘贴剪贴板</button>
+        <button type="button" onclick="clearInput('douyuCookieInput')" class="btn btn-secondary btn-sm">清空</button>
+        <button type="button" id="douyuLogoutBtn" onclick="logoutAccount('douyu')" class="btn btn-outline btn-sm" style="display:none;color:#ff5252;">退出登录</button>
+      </div>
+      <textarea id="douyuCookieInput" placeholder="在此粘贴斗鱼登录 Cookie（包含 dy_auth、acf_auth、acf_uid 等）..."></textarea>
+      <button id="saveDouyuBtn" onclick="saveDouyuCookie()" class="btn btn-primary btn-block">保存并同步斗鱼 Cookie 到电视</button>
+      <div id="douyuStatusMsg" class="status-msg"></div>
+    </div>
+
+    <div class="card">
+      <div class="card-title">
+        <span>📺 哔哩哔哩账号与 Cookie</span>
+        <span id="biliBadge" class="badge-dev" style="font-size:12px;">查询中...</span>
+      </div>
+      <div class="card-desc" id="biliStatusDesc" style="margin-bottom:8px;">提示：登录后可同步原画/高码率清晰度播放权限。</div>
+      <div class="btn-row">
+        <button type="button" onclick="pasteTo('biliCookieInput')" class="btn btn-secondary btn-sm">📋 粘贴剪贴板</button>
+        <button type="button" onclick="clearInput('biliCookieInput')" class="btn btn-secondary btn-sm">清空</button>
+        <button type="button" id="biliLogoutBtn" onclick="logoutAccount('bilibili')" class="btn btn-outline btn-sm" style="display:none;color:#ff5252;">退出登录</button>
+      </div>
+      <textarea id="biliCookieInput" placeholder="在此粘贴哔哩哔哩登录 Cookie（包含 SESSDATA 等）..."></textarea>
+      <button id="saveBiliBtn" onclick="saveBiliCookie()" class="btn btn-primary btn-block">保存并同步 B站 Cookie 到电视</button>
+      <div id="biliStatusMsg" class="status-msg"></div>
+    </div>
+  </div>
+
+  <!-- 4. 历史记录页面 -->
   <div id="tab-history" style="display:none;">
     <div class="card">
       <div class="card-title"><span>🕒 观看历史导出</span></div>
@@ -906,7 +974,7 @@ class SyncService extends GetxService {
 
 <script>
 function switchTab(name) {
-  ['push', 'follow', 'history'].forEach(t => {
+  ['push', 'follow', 'account', 'history'].forEach(t => {
     const el = document.getElementById('tab-' + t);
     const btn = document.getElementById('tabBtn-' + t);
     if (el) el.style.display = (t === name) ? 'block' : 'none';
@@ -917,6 +985,8 @@ function switchTab(name) {
   });
   if (name === 'follow') {
     loadFollows();
+  } else if (name === 'account') {
+    loadAccountStatus();
   }
 }
 
@@ -1110,6 +1180,121 @@ async function sendUrl() {
     btn.disabled = false;
     btn.innerText = '立即投送并播放';
   }
+}
+
+async function loadAccountStatus() {
+  try {
+    const resp = await fetch('/api/account/status');
+    const data = await resp.json();
+    if (data.douyu) {
+      const b = document.getElementById('douyuBadge');
+      const d = document.getElementById('douyuStatusDesc');
+      const btn = document.getElementById('douyuLogoutBtn');
+      if (data.douyu.logined) {
+        b.innerText = '✅ 已登录: ' + (data.douyu.name || '斗鱼用户');
+        b.style.background = '#4caf50';
+        d.innerText = '已成功绑定斗鱼账号，可享受高清/原画永久免断流播放。UID: ' + (data.douyu.uid || '--');
+        btn.style.display = 'inline-block';
+      } else {
+        b.innerText = '⚠️ 未登录';
+        b.style.background = '#ff9800';
+        d.innerText = '提示：未登录时由于斗鱼防盗链限制最高画质可能几分钟断流重连；登录后可享永久不断流租约。';
+        btn.style.display = 'none';
+      }
+    }
+    if (data.bilibili) {
+      const b = document.getElementById('biliBadge');
+      const d = document.getElementById('biliStatusDesc');
+      const btn = document.getElementById('biliLogoutBtn');
+      if (data.bilibili.logined) {
+        b.innerText = '✅ 已登录: ' + (data.bilibili.name || 'B站用户');
+        b.style.background = '#4caf50';
+        d.innerText = '已成功绑定哔哩哔哩账号，支持高画质解码。';
+        btn.style.display = 'inline-block';
+      } else {
+        b.innerText = '⚠️ 未登录';
+        b.style.background = '#ff9800';
+        d.innerText = '提示：未登录时最高仅能观看基础画质，登录后可同步原画/高码率权限。';
+        btn.style.display = 'none';
+      }
+    }
+  } catch (_) {}
+}
+
+async function saveDouyuCookie() {
+  const input = document.getElementById('douyuCookieInput');
+  const btn = document.getElementById('saveDouyuBtn');
+  const status = document.getElementById('douyuStatusMsg');
+  const val = input.value.trim();
+  if(!val) { alert('请先粘贴斗鱼 Cookie！'); return; }
+  btn.disabled = true;
+  btn.innerText = '正在同步中...';
+  status.style.display = 'none';
+  try {
+    const resp = await fetch('/sync/account/douyu', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ cookie: val })
+    });
+    const res = await resp.json();
+    if(res.status) {
+      status.className = 'status-msg status-success';
+      status.innerText = '🎉 斗鱼账号已成功同步并登录！';
+      input.value = '';
+      loadAccountStatus();
+    } else {
+      status.className = 'status-msg status-error';
+      status.innerText = '❌ 同步失败：' + (res.message || '未知错误');
+    }
+  } catch(e) {
+    status.className = 'status-msg status-error';
+    status.innerText = '❌ 请求异常：' + e;
+  } finally {
+    btn.disabled = false;
+    btn.innerText = '保存并同步斗鱼 Cookie 到电视';
+  }
+}
+
+async function saveBiliCookie() {
+  const input = document.getElementById('biliCookieInput');
+  const btn = document.getElementById('saveBiliBtn');
+  const status = document.getElementById('biliStatusMsg');
+  const val = input.value.trim();
+  if(!val) { alert('请先粘贴 B站 Cookie！'); return; }
+  btn.disabled = true;
+  btn.innerText = '正在同步中...';
+  status.style.display = 'none';
+  try {
+    const resp = await fetch('/sync/account/bilibili', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ cookie: val })
+    });
+    const res = await resp.json();
+    if(res.status) {
+      status.className = 'status-msg status-success';
+      status.innerText = '🎉 哔哩哔哩账号已成功同步！';
+      input.value = '';
+      loadAccountStatus();
+    } else {
+      status.className = 'status-msg status-error';
+      status.innerText = '❌ 同步失败：' + (res.message || '未知错误');
+    }
+  } catch(e) {
+    status.className = 'status-msg status-error';
+    status.innerText = '❌ 请求异常：' + e;
+  } finally {
+    btn.disabled = false;
+    btn.innerText = '保存并同步 B站 Cookie 到电视';
+  }
+}
+
+async function logoutAccount(type) {
+  if(!confirm('确定要退出该账号登录状态吗？')) return;
+  try {
+    await fetch('/api/account/' + type + '/logout', { method: 'POST' });
+    loadAccountStatus();
+  } catch (_) {}
 }
 </script>
 </body>

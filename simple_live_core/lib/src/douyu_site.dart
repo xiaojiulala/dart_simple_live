@@ -52,12 +52,16 @@ class DouyuSite implements LiveSite {
     return "";
   }
 
-  /// 参与签名的设备号：优先登录 cookie 的 acf_did（与请求 Cookie 身份一致），
+  /// 参与签名的设备号：优先登录 cookie 的 acf_did 或 acf_devid（与请求 Cookie 身份一致），
   /// 其次 App 注入的持久化 deviceId，最后进程内随机值。
   String get _deviceDid {
     final fromCookie = _cookieValue("acf_did");
     if (fromCookie.isNotEmpty) {
       return fromCookie;
+    }
+    final fromDevId = _cookieValue("acf_devid");
+    if (fromDevId.isNotEmpty) {
+      return fromDevId;
     }
     if (deviceId.trim().isNotEmpty) {
       return deviceId.trim();
@@ -65,7 +69,7 @@ class DouyuSite implements LiveSite {
     return _processFallbackDid;
   }
 
-  /// 组装请求 Cookie：登录 cookie 原样保留；缺失 dy_did/acf_did 时补上
+  /// 组装请求 Cookie：登录 cookie 原样保留；缺失 dy_did/acf_did/acf_devid 时补上
   /// 与签名一致的设备号，保证匿名请求也带稳定设备身份。
   String get _deviceCookieHeader {
     final trimmed = cookie.trim();
@@ -77,7 +81,7 @@ class DouyuSite implements LiveSite {
     if (_cookieValue("dy_did").isEmpty) {
       parts.add("dy_did=$did");
     }
-    if (_cookieValue("acf_did").isEmpty) {
+    if (_cookieValue("acf_did").isEmpty && _cookieValue("acf_devid").isEmpty) {
       parts.add("acf_did=$did");
     }
     return parts.join("; ");

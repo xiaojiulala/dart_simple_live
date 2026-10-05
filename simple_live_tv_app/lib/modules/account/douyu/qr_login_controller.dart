@@ -98,17 +98,23 @@ class DouyuQRLoginController extends GetxController {
         timer?.cancel();
         var authUrl = response["data"]?["url"]?.toString() ?? "";
         if (authUrl.isNotEmpty) {
-          var cookies = <String>[];
+          Map<String, String> sessionCookies = {};
+
           void extractCookies(dio.Response resp) {
             resp.headers["set-cookie"]?.forEach((element) {
               var cookie = element.split(";")[0].trim();
-              if (cookie.isNotEmpty) {
-                cookies.add(cookie);
+              var parts = cookie.split("=");
+              if (parts.length >= 2) {
+                var key = parts[0].trim();
+                var val = parts.sublist(1).join("=").trim();
+                if (key.isNotEmpty && val.isNotEmpty) {
+                  sessionCookies[key] = val;
+                }
               }
             });
           }
 
-          // 1. 先尝试官方标准的 JSONP 回调方式
+          // 1. 先尝试以 JSONP 方式获取（附带已收集到的 cookie）
           try {
             var jsonpUrl = authUrl;
             if (!jsonpUrl.contains("callback=")) {
@@ -129,56 +135,54 @@ class DouyuQRLoginController extends GetxController {
             extractCookies(resp);
           } catch (_) {}
 
-          // 2. 如果 JSONP 未获取到 cookie，使用手动重定向跟踪（followRedirects: false）访问原始 authUrl
-          if (cookies.isEmpty) {
-            String currentUrl = authUrl;
-            for (int i = 0; i < 5; i++) {
-              try {
-                var resp = await HttpClient.instance.dio.get(
-                  currentUrl,
-                  options: dio.Options(
-                    followRedirects: false,
-                    validateStatus: (status) => status != null && status < 500,
-                    responseType: dio.ResponseType.plain,
-                    headers: {
-                      'User-Agent':
-                          'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-                      'Referer': 'https://passport.douyu.com/',
-                    },
-                  ),
-                );
-                extractCookies(resp);
+          // 2. 手动单步跟踪重定向（最长 6 跳），每次必须把前面累积的所有 Cookie 带入下一跳
+          String currentUrl = authUrl;
+          for (int i = 0; i < 6; i++) {
+            try {
+              String cookieHeader = sessionCookies.entries
+                  .map((e) => "${e.key}=${e.value}")
+                  .join("; ");
+              var resp = await HttpClient.instance.dio.get(
+                currentUrl,
+                options: dio.Options(
+                  followRedirects: false,
+                  validateStatus: (status) => status != null && status < 500,
+                  responseType: dio.ResponseType.plain,
+                  headers: {
+                    'User-Agent':
+                        'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+                    'Referer': 'https://passport.douyu.com/',
+                    if (cookieHeader.isNotEmpty) 'Cookie': cookieHeader,
+                  },
+                ),
+              );
+              extractCookies(resp);
 
-                if (resp.statusCode == 301 ||
-                    resp.statusCode == 302 ||
-                    resp.statusCode == 303 ||
-                    resp.statusCode == 307) {
-                  var location = resp.headers.value("location");
-                  if (location != null && location.isNotEmpty) {
-                    currentUrl = location.startsWith("http")
-                        ? location
-                        : "https://www.douyu.com$location";
-                    continue;
-                  }
+              if (resp.statusCode == 301 ||
+                  resp.statusCode == 302 ||
+                  resp.statusCode == 303 ||
+                  resp.statusCode == 307) {
+                var location = resp.headers.value("location");
+                if (location != null && location.isNotEmpty) {
+                  currentUrl = location.startsWith("http")
+                      ? location
+                      : "https://www.douyu.com$location";
+                  continue;
                 }
-                break;
-              } catch (_) {
-                break;
               }
+              break;
+            } catch (_) {
+              break;
             }
           }
 
-          // 3. 去重并组装完整 Cookie 字符串
-          if (cookies.isNotEmpty) {
-            Map<String, String> cookieMap = {};
-            for (var item in cookies) {
-              var parts = item.split("=");
-              if (parts.length >= 2) {
-                cookieMap[parts[0].trim()] = parts.sublist(1).join("=").trim();
-              }
-            }
-            var cookieStr =
-                cookieMap.entries.map((e) => "${e.key}=${e.value}").join("; ");
+          // 3. 核心校验：必须包含实际的鉴权字段（acf_auth 或 dy_auth 或 acf_uid）
+          if (sessionCookies.containsKey("acf_auth") ||
+              sessionCookies.containsKey("dy_auth") ||
+              sessionCookies.containsKey("acf_uid")) {
+            var cookieStr = sessionCookies.entries
+                .map((e) => "${e.key}=${e.value}")
+                .join("; ");
             Log.i("Douyu login cookie: $cookieStr");
             DouyuAccountService.instance.setCookie(cookieStr);
             await DouyuAccountService.instance.loadUserInfo();
