@@ -564,34 +564,38 @@ class LiveRoomController extends PlayerController with WidgetsBindingObserver {
       final position = player.state.position;
       final last = _lastWatchdogPosition;
       final advanced =
-          last == null || position.inMilliseconds - last.inMilliseconds >= 250;
-      final bufferLead = player.state.buffer - position;
-      final bufferExhausted = bufferLead <= const Duration(milliseconds: 350);
-      if (player.state.buffering || bufferExhausted) {
+          last != null && position.inMilliseconds - last.inMilliseconds >= 250;
+      _lastWatchdogPosition = position;
+
+      if (advanced) {
+        // 播放进度正常前进，说明画面正在流畅渲染，绝非卡死；直接清空采样计数
+        _stallSampleCount = 0;
+        _bufferingSampleCount = 0;
+        return;
+      }
+
+      // 仅在进度停滞（画面冻结）时，才累计采样
+      _stallSampleCount += 1;
+      if (player.state.buffering) {
         _bufferingSampleCount += 1;
       } else {
         _bufferingSampleCount = 0;
       }
-      if (!advanced) {
-        _stallSampleCount += 1;
-      } else {
-        _stallSampleCount = 0;
-      }
-      if ((_stallSampleCount >= 2 || _bufferingSampleCount >= 3) &&
+
+      if ((_stallSampleCount >= 3 || _bufferingSampleCount >= 4) &&
           !_watchdogRefreshing &&
           (_lastWatchdogRefreshAt == null ||
               DateTime.now().difference(_lastWatchdogRefreshAt!) >=
-                  const Duration(seconds: 8))) {
+                  const Duration(seconds: 10))) {
         _watchdogRefreshing = true;
         _lastWatchdogRefreshAt = DateTime.now();
         _stallSampleCount = 0;
         _bufferingSampleCount = 0;
-        Log.w("检测到播放停滞或持续缓冲卡死，自动刷新播放");
+        Log.w("检测到播放真正停滞卡死，自动刷新播放");
         _refreshPlayerFromWatchdog().whenComplete(() {
           _watchdogRefreshing = false;
         });
       }
-      _lastWatchdogPosition = position;
     });
   }
 
