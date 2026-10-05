@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'dart:math';
 
 import 'package:simple_live_core/src/common/http_client.dart';
+import 'package:simple_live_core/src/common/core_error.dart';
 import 'package:simple_live_core/src/danmaku/douyu_danmaku.dart';
 import 'package:simple_live_core/src/interface/live_danmaku.dart';
 import 'package:simple_live_core/src/interface/live_site.dart';
@@ -20,7 +21,74 @@ import 'package:html_unescape/html_unescape.dart';
 import 'package:simple_live_core/src/scripts/douyu_sign.dart';
 
 class DouyuSite implements LiveSite {
+  /// Optional logged-in Cookie. Anonymous playback remains supported, but
+  /// Douyu may cap anonymous high-quality streams after a short period.
   String cookie = "";
+
+  /// 本设备持久化的匿名设备号（32 位 hex），由 App 层生成并注入。
+  /// 作用：匿名请求不再共用写死的假 did（千万用户共享一个"设备"是风控
+  /// 掐流的典型特征），签名与 dy_did/acf_did Cookie 保持一致。
+  String deviceId = "";
+
+  /// 进程内兜底设备号：App 层未注入时也保证同一进程内身份稳定。
+  static final String _processFallbackDid = _generateHexDid(32);
+
+  static String _generateHexDid(int length) {
+    var random = Random.secure();
+    return List.generate(
+      length,
+      (i) => random.nextInt(16).toRadixString(16),
+    ).join();
+  }
+
+  /// 从 cookie 字符串中解析指定键的值
+  String _cookieValue(String key) {
+    for (var part in cookie.split(';')) {
+      var kv = part.trim().split('=');
+      if (kv.length >= 2 && kv[0] == key) {
+        return kv.sublist(1).join('=');
+      }
+    }
+    return "";
+  }
+
+  /// 参与签名的设备号：优先登录 cookie 的 acf_did（与请求 Cookie 身份一致），
+  /// 其次 App 注入的持久化 deviceId，最后进程内随机值。
+  String get _deviceDid {
+    final fromCookie = _cookieValue("acf_did");
+    if (fromCookie.isNotEmpty) {
+      return fromCookie;
+    }
+    if (deviceId.trim().isNotEmpty) {
+      return deviceId.trim();
+    }
+    return _processFallbackDid;
+  }
+
+  /// 组装请求 Cookie：登录 cookie 原样保留；缺失 dy_did/acf_did 时补上
+  /// 与签名一致的设备号，保证匿名请求也带稳定设备身份。
+  String get _deviceCookieHeader {
+    final trimmed = cookie.trim();
+    final did = _deviceDid;
+    var parts = <String>[];
+    if (trimmed.isNotEmpty) {
+      parts.add(trimmed);
+    }
+    if (_cookieValue("dy_did").isEmpty) {
+      parts.add("dy_did=$did");
+    }
+    if (_cookieValue("acf_did").isEmpty) {
+      parts.add("acf_did=$did");
+    }
+    return parts.join("; ");
+  }
+
+  Map<String, String> get _requestHeaders => {
+    'referer': 'https://www.douyu.com/',
+    'user-agent':
+        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36",
+    if (_deviceCookieHeader.isNotEmpty) 'Cookie': _deviceCookieHeader,
+  };
 
   @override
   String id = "douyu";
@@ -98,26 +166,28 @@ class DouyuSite implements LiveSite {
   Future<List<LivePlayQuality>> getPlayQualites({
     required LiveRoomDetail detail,
   }) async {
-    var data = detail.data.toString();
+    var data = await _getFreshPlayArgs(detail.roomId, fallback: detail.data);
     data += "&cdn=&rate=-1&ver=Douyu_223061205&iar=1&ive=1&hevc=0&fa=0";
     List<LivePlayQuality> qualities = [];
-    var headers = <String, String>{
-      'referer': 'https://www.douyu.com/${detail.roomId}',
-      'user-agent':
-          "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/114.0.0.0 Safari/537.36 Edg/114.0.1823.43",
-    };
-    if (cookie.isNotEmpty) {
-      headers['cookie'] = cookie;
-    }
     var result = await HttpClient.instance.postJson(
       "https://www.douyu.com/lapi/live/getH5Play/${detail.roomId}",
       data: data,
-      header: headers,
+      header: _requestHeaders,
       formUrlEncoded: true,
     );
+    final errorCode = result is Map ? result["error"] : null;
+    final payload = result is Map ? result["data"] : null;
+    if (errorCode != null && errorCode.toString() != "0") {
+      throw CoreError("斗鱼播放质量请求失败：${result["msg"] ?? errorCode}");
+    }
+    if (payload is! Map ||
+        payload["cdnsWithName"] is! List ||
+        payload["multirates"] is! List) {
+      throw CoreError("斗鱼返回了无效的播放质量");
+    }
 
     var cdns = <String>[];
-    for (var item in result["data"]["cdnsWithName"]) {
+    for (var item in payload["cdnsWithName"]) {
       cdns.add(item["cdn"].toString());
     }
 
@@ -131,7 +201,7 @@ class DouyuSite implements LiveSite {
       return 0;
     });
 
-    for (var item in result["data"]["multirates"]) {
+    for (var item in payload["multirates"]) {
       qualities.add(
         LivePlayQuality(
           quality: item["name"].toString(),
@@ -147,12 +217,11 @@ class DouyuSite implements LiveSite {
     required LiveRoomDetail detail,
     required LivePlayQuality quality,
   }) async {
-    // 每次拉流或续播均重新获取最新时间戳脚本签名，防止 10-15 分钟加密串过期导致卡死
+    // The signed playback arguments expire while a room remains open.  A
+    // retry must fetch a new server script and sign it again; reusing the
+    // value captured by getRoomDetail causes Douyu to return a timestamp error
+    // after roughly ten minutes for high-quality anonymous streams.
     var args = await _getFreshPlayArgs(detail.roomId, fallback: detail.data);
-    if (args.isEmpty) {
-      args = detail.data.toString();
-    }
-
     var data = quality.data as DouyuPlayData;
 
     List<String> urls = [];
@@ -165,32 +234,6 @@ class DouyuSite implements LiveSite {
     return LivePlayUrl(urls: urls);
   }
 
-  Future<String> _getFreshPlayArgs(String roomId, {Object? fallback}) async {
-    try {
-      final jsEncResult = await HttpClient.instance.getText(
-        "https://www.douyu.com/swf_api/homeH5Enc?rids=$roomId",
-        queryParameters: {},
-        header: {
-          'referer': 'https://www.douyu.com/$roomId',
-          'user-agent':
-              "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
-          if (cookie.trim().isNotEmpty) 'cookie': cookie.trim(),
-        },
-      );
-      final decoded = json.decode(jsEncResult);
-      final payload = decoded is Map ? decoded["data"] : null;
-      final script =
-          payload is Map ? payload["room$roomId"]?.toString() : null;
-      if (script != null && script.isNotEmpty) {
-        final signed = DouyuSign.getSign(script, roomId);
-        if (signed.isNotEmpty) {
-          return signed;
-        }
-      }
-    } catch (_) {}
-    return fallback?.toString() ?? "";
-  }
-
   Future<String> getPlayUrl(
     String roomId,
     String args,
@@ -198,38 +241,52 @@ class DouyuSite implements LiveSite {
     String cdn,
   ) async {
     args += "&cdn=$cdn&rate=$rate";
+    var result = await HttpClient.instance.postJson(
+      "https://www.douyu.com/lapi/live/getH5Play/$roomId",
+      data: args,
+      header: {..._requestHeaders, 'referer': 'https://www.douyu.com/$roomId'},
+      formUrlEncoded: true,
+    );
+
+    final errorCode = result is Map ? result["error"] : null;
+    final data = result is Map ? result["data"] : null;
+    if (errorCode != null && errorCode.toString() != "0") {
+      throw CoreError("斗鱼播放地址请求失败：${result["msg"] ?? errorCode}");
+    }
+    if (data is! Map || data["rtmp_url"] == null || data["rtmp_live"] == null) {
+      throw CoreError("斗鱼返回了无效的播放地址");
+    }
+    return "${data["rtmp_url"]}/${HtmlUnescape().convert(data["rtmp_live"].toString())}";
+  }
+
+  Future<String> _getFreshPlayArgs(String roomId, {Object? fallback}) async {
     try {
-      var headers = <String, String>{
-        'referer': 'https://www.douyu.com/$roomId',
-        'user-agent':
-            "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/114.0.0.0 Safari/537.36 Edg/114.0.1823.43",
-      };
-      if (cookie.isNotEmpty) {
-        headers['cookie'] = cookie;
-      }
-      var result = await HttpClient.instance.postJson(
-        "https://www.douyu.com/lapi/live/getH5Play/$roomId",
-        data: args,
-        header: headers,
-        formUrlEncoded: true,
+      final jsEncResult = await HttpClient.instance.getText(
+        "https://www.douyu.com/swf_api/homeH5Enc?rids=$roomId",
+        queryParameters: {},
+        header: {
+          ..._requestHeaders,
+          'referer': 'https://www.douyu.com/$roomId',
+        },
       );
-
-      if (result is String) {
-        try {
-          result = json.decode(result);
-        } catch (_) {}
-      }
-
-      if (result is Map && result["error"] == 0 && result["data"] is Map) {
-        var rtmpUrl = result["data"]["rtmp_url"]?.toString() ?? "";
-        var rtmpLive = result["data"]["rtmp_live"]?.toString() ?? "";
-        if (rtmpUrl.isNotEmpty && rtmpLive.isNotEmpty) {
-          return "$rtmpUrl/${HtmlUnescape().convert(rtmpLive)}";
+      final decoded = json.decode(jsEncResult);
+      final payload = decoded is Map ? decoded["data"] : null;
+      final script = payload is Map ? payload["room$roomId"] : null;
+      if (script is String && script.isNotEmpty) {
+        final signed = DouyuSign.getSign(script, roomId, _deviceDid);
+        if (signed.isNotEmpty) {
+          return signed;
         }
       }
-    } catch (_) {}
-
-    return "";
+    } catch (_) {
+      // Keep the original arguments as a compatibility fallback for transient
+      // failures; the subsequent playback response is validated below.
+    }
+    final value = fallback?.toString() ?? "";
+    if (value.isEmpty) {
+      throw CoreError("斗鱼播放签名刷新失败");
+    }
+    return value;
   }
 
   @override
@@ -264,11 +321,7 @@ class DouyuSite implements LiveSite {
     Map h5RoomInfo = await HttpClient.instance.getJson(
       "https://www.douyu.com/swf_api/h5room/$roomId",
       queryParameters: {},
-      header: {
-        'referer': 'https://www.douyu.com/$roomId',
-        'user-agent':
-            'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/114.0.0.0 Safari/537.36 Edg/114.0.1823.43',
-      },
+      header: {..._requestHeaders, 'referer': 'https://www.douyu.com/$roomId'},
     );
     String? showTime = h5RoomInfo["data"]?["show_time"]?.toString();
 
@@ -313,15 +366,14 @@ class DouyuSite implements LiveSite {
     String keyword, {
     int page = 1,
   }) async {
-    var did = generateRandomString(32);
     var result = await HttpClient.instance.getJson(
       "https://www.douyu.com/japi/search/api/searchShow",
       queryParameters: {"kw": keyword, "page": page, "pageSize": 20},
       header: {
+        ..._requestHeaders,
         'User-Agent':
             'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/114.0.0.0 Safari/537.36 Edg/114.0.1823.51',
         'referer': 'https://www.douyu.com/search/',
-        'Cookie': 'dy_did=$did;acf_did=$did',
       },
     );
     if (result['error'] != 0) {
@@ -377,7 +429,6 @@ class DouyuSite implements LiveSite {
     String keyword, {
     int page = 1,
   }) async {
-    var did = generateRandomString(32);
     var result = await HttpClient.instance.getJson(
       "https://www.douyu.com/japi/search/api/searchUser",
       queryParameters: {
@@ -387,10 +438,10 @@ class DouyuSite implements LiveSite {
         "filterType": 1,
       },
       header: {
+        ..._requestHeaders,
         'User-Agent':
             'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/114.0.0.0 Safari/537.36 Edg/114.0.1823.51',
         'referer': 'https://www.douyu.com/search/',
-        'Cookie': 'dy_did=$did;acf_did=$did',
       },
     );
 
