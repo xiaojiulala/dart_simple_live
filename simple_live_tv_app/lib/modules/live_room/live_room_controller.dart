@@ -455,8 +455,8 @@ class LiveRoomController extends PlayerController with WidgetsBindingObserver {
         EventBus.instance.emit(Constant.kUpdateFollow, currentFollowId);
         SmartDialog.showToast("已自动同步【${roomDetail.userName}】小红书最新直播场次");
       }
-    } catch (e) {
-      Log.e("小红书关注迁移失败: $e");
+    } catch (e, stackTrace) {
+      Log.e("小红书关注迁移失败: $e", stackTrace);
     }
   }
 

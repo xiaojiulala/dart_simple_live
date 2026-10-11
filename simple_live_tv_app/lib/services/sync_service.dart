@@ -1443,8 +1443,8 @@ async function logoutAccount(type) {
         EventBus.instance.emit(Constant.kUpdateFollow, newFollowId);
         Log.i("小红书关注场次已自动迁移至新房间: $newRoomId");
       }
-    } catch (e) {
-      Log.e("小红书SyncService关注迁移异常: $e");
+    } catch (e, stackTrace) {
+      Log.e("小红书SyncService关注迁移异常: $e", stackTrace);
     }
   }
 
