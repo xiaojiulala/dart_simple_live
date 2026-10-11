@@ -386,6 +386,11 @@ class LiveRoomController extends PlayerController with WidgetsBindingObserver {
       pageLoadding.value = true;
       detail.value = await site.liveSite.getRoomDetail(roomId: roomId);
 
+      // 小红书平台单场次特性：若曾关注该主播的历史场次，自动迁移至当前新场次
+      if (site.id == Constant.kXiaohongshu && detail.value != null) {
+        _migrateXiaohongshuFollow(detail.value!);
+      }
+
       addHistory();
       online.value = detail.value!.online;
       liveStatus.value = detail.value!.status || detail.value!.isRecord;
@@ -394,14 +399,87 @@ class LiveRoomController extends PlayerController with WidgetsBindingObserver {
       }
       if (detail.value!.isRecord) {
         SmartDialog.showToast("当前主播未开播，正在轮播录像");
+      } else if (site.id == Constant.kXiaohongshu && !liveStatus.value) {
+        SmartDialog.showToast("当前小红书场次未在直播。小红书每次开播均为新场次，若主播正在直播，请投送最新链接。");
       }
 
       initDanmau();
       liveDanmaku.start(detail.value?.danmakuData);
     } catch (e) {
-      SmartDialog.showToast(e.toString());
+      if (site.id == Constant.kXiaohongshu) {
+        _handleXiaohongshuLoadError(e);
+      } else {
+        SmartDialog.showToast(e.toString());
+      }
     } finally {
       pageLoadding.value = false;
+    }
+  }
+
+  bool _isSameXiaohongshuAnchor(String a, String b) {
+    final cleanA = a.trim().replaceAll(RegExp(r'\s+'), ' ').toLowerCase();
+    final cleanB = b.trim().replaceAll(RegExp(r'\s+'), ' ').toLowerCase();
+    return cleanA.isNotEmpty && cleanA != "小红书主播" && cleanA == cleanB;
+  }
+
+  void _migrateXiaohongshuFollow(LiveRoomDetail roomDetail) {
+    final name = roomDetail.userName.trim();
+    if (name.isEmpty || name == "小红书主播") {
+      return;
+    }
+    try {
+      final currentFollowId = "${site.id}_$roomId";
+      final allFollows = DBService.instance.getFollowList();
+      final oldFollows = allFollows.where((f) =>
+          f.siteId == Constant.kXiaohongshu &&
+          _isSameXiaohongshuAnchor(f.userName, name) &&
+          f.roomId != roomId).toList();
+
+      if (oldFollows.isNotEmpty) {
+        DateTime addTime = DateTime.now();
+        for (final old in oldFollows) {
+          addTime = old.addTime;
+          DBService.instance.deleteFollow(old.id);
+        }
+        final newFollow = FollowUser(
+          id: currentFollowId,
+          roomId: roomId,
+          siteId: site.id,
+          userName: roomDetail.userName,
+          face: roomDetail.userAvatar,
+          addTime: addTime,
+        );
+        newFollow.liveStatus.value = roomDetail.status ? 2 : 1;
+        DBService.instance.addFollow(newFollow);
+        followed.value = true;
+        EventBus.instance.emit(Constant.kUpdateFollow, currentFollowId);
+        SmartDialog.showToast("已自动同步【${roomDetail.userName}】小红书最新直播场次");
+      }
+    } catch (e) {
+      Log.e("小红书关注迁移失败: $e");
+    }
+  }
+
+  void _handleXiaohongshuLoadError(dynamic e) async {
+    final isFollowed = DBService.instance.getFollowExist("${site.id}_$roomId");
+    if (isFollowed) {
+      final shouldRemove = await Utils.showAlertDialog(
+        "小红书采用单场次直播机制（Session ID），历史场次下播后即永久关闭。\n\n"
+        "若该主播已开启新一场直播，请通过手机或网页控制台投送最新直播链接，系统会自动识别并迁移更新关注。\n\n"
+        "是否取消关注当前已失效的历史场次？",
+        title: "小红书直播场次已结束",
+        confirm: "取消关注此场次",
+        cancel: "我知道了",
+      );
+      if (shouldRemove) {
+        removeFollowUser();
+        Get.back();
+      }
+    } else {
+      SmartDialog.showToast(
+        "该小红书直播场次已结束。小红书每次开播均生成新场次号，若主播已开启新直播，请投送最新分享链接。",
+        displayTime: const Duration(seconds: 4),
+      );
     }
   }
 
@@ -750,6 +828,20 @@ class LiveRoomController extends PlayerController with WidgetsBindingObserver {
     if (detail.value == null) {
       return;
     }
+    // 小红书平台单场次特性：如果之前关注过该主播的历史场次，先清理旧场次避免产生重复失效卡片
+    if (site.id == Constant.kXiaohongshu) {
+      final name = detail.value?.userName.trim() ?? "";
+      if (name.isNotEmpty && name != "小红书主播") {
+        final allFollows = DBService.instance.getFollowList();
+        final oldFollows = allFollows.where((f) =>
+            f.siteId == Constant.kXiaohongshu &&
+            _isSameXiaohongshuAnchor(f.userName, name) &&
+            f.roomId != roomId).toList();
+        for (final old in oldFollows) {
+          DBService.instance.deleteFollow(old.id);
+        }
+      }
+    }
     var id = "${site.id}_$roomId";
     DBService.instance.addFollow(
       FollowUser(
@@ -768,13 +860,6 @@ class LiveRoomController extends PlayerController with WidgetsBindingObserver {
 
   /// 取消关注用户
   void removeFollowUser() async {
-    if (detail.value == null) {
-      return;
-    }
-    // if (!await Utils.showAlertDialog("确定要取消关注该用户吗？", title: "取消关注")) {
-    //   return;
-    // }
-
     var id = "${site.id}_$roomId";
     DBService.instance.deleteFollow(id);
     followed.value = false;

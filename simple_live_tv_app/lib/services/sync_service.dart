@@ -14,6 +14,7 @@ import 'package:simple_live_tv_app/models/db/follow_user.dart';
 import 'package:simple_live_tv_app/models/db/history.dart';
 import 'package:simple_live_tv_app/services/bilibili_account_service.dart';
 import 'package:simple_live_tv_app/services/db_service.dart';
+import 'package:simple_live_core/simple_live_core.dart';
 import 'package:simple_live_tv_app/services/douyin_account_service.dart';
 import 'package:simple_live_tv_app/app/sites.dart';
 import 'package:simple_live_tv_app/modules/parse/live_url_parser.dart';
@@ -179,6 +180,7 @@ class SyncService extends GetxService {
       serverRouter.get('/api/export/follow', _downloadFollowJsonRequest);
       serverRouter.get('/api/export/history', _downloadHistoryJsonRequest);
       serverRouter.get('/api/follows', _getFollowListJsonRequest);
+      serverRouter.post('/api/follow/delete', _deleteFollowJsonRequest);
 
       var server = await shelf_io.serve(
         serverRouter,
@@ -275,6 +277,23 @@ class SyncService extends GetxService {
         'status': false,
         'message': e.toString(),
       });
+    }
+  }
+
+  /// 删除单个关注
+  Future<shelf.Response> _deleteFollowJsonRequest(shelf.Request request) async {
+    try {
+      final body = await request.readAsString();
+      final data = json.decode(body);
+      final id = data['id']?.toString() ?? '';
+      if (id.isEmpty) {
+        return toJsonResponse({'status': false, 'message': 'ID不能为空'});
+      }
+      await DBService.instance.deleteFollow(id);
+      EventBus.instance.emit(Constant.kUpdateFollow, id);
+      return toJsonResponse({'status': true, 'message': '删除成功'});
+    } catch (e) {
+      return toJsonResponse({'status': false, 'message': e.toString()});
     }
   }
 
@@ -864,13 +883,20 @@ class SyncService extends GetxService {
       • <b>斗鱼直播</b>：douyu.com 房间及专题页链接<br>
       • <b>虎牙直播</b>：huya.com 房间链接<br>
       • <b>抖音直播</b>：live.douyin.com / v.douyin.com 短链<br>
-      • <b>小红书直播</b>：xhslink.com 短链 / xiaohongshu.com 直播链接<br>
+      • <b>小红书直播</b>：xhslink.com 短链 / xiaohongshu.com 直播链接（注：小红书为单场次直播机制，主播每次开播均生成新场次号；投送新链接时系统会自动将已关注主播更新至最新场次）<br>
       • 手机分享时附带的中文文案系统会自动智能识别过滤。
     </div>
   </div>
 
   <!-- 2. 关注管理页面 -->
   <div id="tab-follow" style="display:none;">
+    <div class="tip-box" style="margin-bottom:16px;">
+      <b>💡 小红书关注机制说明：</b><br>
+      • 小红书采用单场次直播机制（Session ID），主播每次开播均生成新的 18 位场次号，历史场次下播后即关闭。<br>
+      • 若主播重新开播，直接在“投送播放”页面投送其最新直播链接，电视会自动同步并将关注迁移至最新场次。<br>
+      • 如需清理已失效的旧场次记录，可直接点击下方列表中的“删除”按钮。
+    </div>
+
     <div class="card">
       <div class="card-title">
         <span>📥 导出关注</span>
@@ -1044,6 +1070,7 @@ async function loadFollows() {
             '<div class="follow-sub">' + (u.roomId || '') + '</div>' +
           '</div>' +
           getSiteBadge(u.siteId) +
+          '<button class="btn btn-outline btn-sm" style="margin-left:8px;color:#ff5252;border-color:rgba(255,82,82,0.35);padding:4px 8px;" onclick="deleteFollowItem(\'' + u.id + '\', \'' + (u.userName || '').replace(/'/g, "\\'") + '\')">删除</button>' +
         '</div>';
       }
       preview.innerHTML = html;
@@ -1054,6 +1081,25 @@ async function loadFollows() {
   } catch(e) {
     badge.innerText = '关注数：--';
     preview.innerHTML = '<div style="padding:20px;text-align:center;color:#f87171;font-size:13px;">网络请求失败：' + e + '</div>';
+  }
+}
+
+async function deleteFollowItem(id, name) {
+  if(!confirm('确定要从电视关注列表中删除【' + (name || id) + '】吗？')) return;
+  try {
+    const resp = await fetch('/api/follow/delete', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ id: id })
+    });
+    const res = await resp.json();
+    if(res.status) {
+      loadFollows();
+    } else {
+      alert('删除失败：' + (res.message || '未知错误'));
+    }
+  } catch(e) {
+    alert('请求失败：' + e);
   }
 }
 
@@ -1330,13 +1376,19 @@ async function logoutAccount(type) {
       }
 
       // 验证房间是否有效，避免电视白屏
+      final LiveRoomDetail detail;
       try {
-        final detail = await site.liveSite.getRoomDetail(roomId: parsed.roomId);
+        detail = await site.liveSite.getRoomDetail(roomId: parsed.roomId);
         if (detail.roomId.isEmpty) {
           throw '房间信息为空';
         }
       } catch (e) {
         return toJsonResponse({'success': false, 'message': '获取房间信息失败：$e'});
+      }
+
+      // 如果是小红书，自动同步/迁移已关注主播的历史场次到最新场次
+      if (parsed.siteId == Constant.kXiaohongshu && detail.userName.isNotEmpty) {
+        _migrateXiaohongshuFollow(parsed.roomId, detail);
       }
 
       // 在主线程安全跳转
@@ -1351,6 +1403,48 @@ async function logoutAccount(type) {
       });
     } catch (e) {
       return toJsonResponse({'success': false, 'message': e.toString()});
+    }
+  }
+
+  bool _isSameXiaohongshuAnchor(String a, String b) {
+    final cleanA = a.trim().replaceAll(RegExp(r'\s+'), ' ').toLowerCase();
+    final cleanB = b.trim().replaceAll(RegExp(r'\s+'), ' ').toLowerCase();
+    return cleanA.isNotEmpty && cleanA != "小红书主播" && cleanA == cleanB;
+  }
+
+  void _migrateXiaohongshuFollow(String newRoomId, LiveRoomDetail detail) {
+    try {
+      final name = detail.userName.trim();
+      if (name.isEmpty || name == "小红书主播") return;
+
+      final allFollows = DBService.instance.getFollowList();
+      final oldFollows = allFollows.where((f) =>
+          f.siteId == Constant.kXiaohongshu &&
+          _isSameXiaohongshuAnchor(f.userName, name) &&
+          f.roomId != newRoomId).toList();
+
+      if (oldFollows.isNotEmpty) {
+        DateTime addTime = DateTime.now();
+        for (final old in oldFollows) {
+          addTime = old.addTime;
+          DBService.instance.deleteFollow(old.id);
+        }
+        final newFollowId = "${Constant.kXiaohongshu}_$newRoomId";
+        final newFollow = FollowUser(
+          id: newFollowId,
+          roomId: newRoomId,
+          siteId: Constant.kXiaohongshu,
+          userName: detail.userName,
+          face: detail.userAvatar,
+          addTime: addTime,
+        );
+        newFollow.liveStatus.value = detail.status ? 2 : 1;
+        DBService.instance.addFollow(newFollow);
+        EventBus.instance.emit(Constant.kUpdateFollow, newFollowId);
+        Log.i("小红书关注场次已自动迁移至新房间: $newRoomId");
+      }
+    } catch (e) {
+      Log.e("小红书SyncService关注迁移异常: $e");
     }
   }
 

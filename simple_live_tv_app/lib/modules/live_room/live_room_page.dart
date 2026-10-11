@@ -7,6 +7,7 @@ import 'package:get/get.dart';
 import 'package:media_kit_video/media_kit_video.dart';
 import 'package:simple_live_tv_app/app/app_style.dart';
 import 'package:simple_live_tv_app/app/controller/app_settings_controller.dart';
+import 'package:simple_live_tv_app/app/constant.dart';
 import 'package:simple_live_tv_app/app/log.dart';
 import 'package:simple_live_tv_app/modules/live_room/live_room_controller.dart';
 import 'package:simple_live_tv_app/modules/live_room/player/player_controls.dart';
@@ -147,7 +148,10 @@ class LiveRoomPage extends GetView<LiveRoomController> {
                 !controller.liveStatus.value && !controller.pageLoadding.value,
             child: Center(
               child: Text(
-                "未开播",
+                controller.site.id == Constant.kXiaohongshu
+                    ? "当前小红书直播场次未在直播或已结束\n(小红书每次开播均为新场次号，若主播正在直播请投送最新链接)"
+                    : "未开播",
+                textAlign: TextAlign.center,
                 style: AppStyle.textStyleWhite,
               ),
             ),
