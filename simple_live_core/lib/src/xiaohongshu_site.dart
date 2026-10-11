@@ -54,11 +54,19 @@ class XiaohongshuSite extends LiveSite {
     );
   }
 
+  static final Map<String, _CachedRoomDetail> _detailCache = {};
+
   @override
   Future<LiveRoomDetail> getRoomDetail({required String roomId}) async {
     final cleanId = _sanitizeRoomId(roomId);
     if (cleanId.isEmpty) {
       throw CoreError("无效的小红书房间号");
+    }
+
+    final cached = _detailCache[cleanId];
+    if (cached != null &&
+        DateTime.now().difference(cached.time) < const Duration(seconds: 30)) {
+      return cached.detail;
     }
 
     final url = "https://www.xiaohongshu.com/livestream/$cleanId";
@@ -96,7 +104,7 @@ class XiaohongshuSite extends LiveSite {
         int.tryParse(roomInfo['displayViewerCount']?.toString() ?? '') ?? 0;
     final String pullConfig = roomInfo['pullConfig']?.toString() ?? '';
 
-    return LiveRoomDetail(
+    final result = LiveRoomDetail(
       roomId: cleanId,
       title: title,
       cover: cover,
@@ -107,6 +115,9 @@ class XiaohongshuSite extends LiveSite {
       url: url,
       data: pullConfig,
     );
+    _detailCache[cleanId] =
+        _CachedRoomDetail(detail: result, time: DateTime.now());
+    return result;
   }
 
   @override
@@ -139,10 +150,15 @@ class XiaohongshuSite extends LiveSite {
         final qualityName = item['quality_type_name']?.toString() ?? '';
         if (url.isEmpty || qualityName.isEmpty) continue;
 
-        final label = '$qualityName (${codec.toUpperCase()})';
+        final isFlv = url.toLowerCase().contains('.flv');
+        final formatLabel = isFlv ? 'FLV' : 'HLS';
+        final label = '$qualityName ($formatLabel ${codec.toUpperCase()})';
         var sort = _qualitySort(qualityType);
         if (codec.toLowerCase() == 'h264') {
           sort += 5; // 提高 H264 优先级以保证电视端播放兼容性
+        }
+        if (isFlv) {
+          sort += 2; // 提高 FLV 优先级，实现电视端秒开，避免 HLS 多切片缓冲等待
         }
         qualities.add(
           LivePlayQuality(
@@ -298,4 +314,10 @@ class XiaohongshuSite extends LiveSite {
     if (q.contains("360p") || q.contains("360")) return 200;
     return 100;
   }
+}
+
+class _CachedRoomDetail {
+  final LiveRoomDetail detail;
+  final DateTime time;
+  _CachedRoomDetail({required this.detail, required this.time});
 }

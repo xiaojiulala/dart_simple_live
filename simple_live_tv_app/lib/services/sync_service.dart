@@ -1062,7 +1062,7 @@ async function loadFollows() {
       let html = '';
       for(const u of res.data) {
         const pic = u.face || u.avatar || '';
-        const avatar = pic ? '<img class="follow-avatar" src="' + pic + '" onerror="this.style.display=\\'none\\'" />' : '<div class="follow-avatar"></div>';
+        const avatar = pic ? '<img class="follow-avatar" src="' + pic + '" onerror="this.remove()" />' : '<div class="follow-avatar"></div>';
         html += '<div class="follow-item">' +
           avatar +
           '<div class="follow-info">' +
@@ -1070,10 +1070,18 @@ async function loadFollows() {
             '<div class="follow-sub">' + (u.roomId || '') + '</div>' +
           '</div>' +
           getSiteBadge(u.siteId) +
-          '<button class="btn btn-outline btn-sm" style="margin-left:8px;color:#ff5252;border-color:rgba(255,82,82,0.35);padding:4px 8px;" onclick="deleteFollowItem(\'' + u.id + '\', \'' + (u.userName || '').replace(/'/g, "\\'") + '\')">删除</button>' +
+          '<button class="btn btn-outline btn-sm btn-del-follow" style="margin-left:8px;color:#ff5252;border-color:rgba(255,82,82,0.35);padding:4px 8px;" data-id="' + encodeURIComponent(u.id || '') + '" data-name="' + encodeURIComponent(u.userName || u.id || '') + '">删除</button>' +
         '</div>';
       }
       preview.innerHTML = html;
+      preview.onclick = function(e) {
+        const btn = e.target.closest('.btn-del-follow');
+        if(btn) {
+          const id = decodeURIComponent(btn.getAttribute('data-id') || '');
+          const name = decodeURIComponent(btn.getAttribute('data-name') || '');
+          deleteFollowItem(id, name);
+        }
+      };
     } else {
       badge.innerText = '关注数：--';
       preview.innerHTML = '<div style="padding:20px;text-align:center;color:#f87171;font-size:13px;">加载失败：' + (res.message || '未知错误') + '</div>';
@@ -1432,7 +1440,6 @@ async function logoutAccount(type) {
 
       for (final old in oldFollows) {
         DBService.instance.deleteFollow(old.id);
-        EventBus.instance.emit(Constant.kUpdateFollow, old.id);
       }
     } catch (e, stackTrace) {
       Log.e("小红书SyncService关注清理异常: $e", stackTrace);
