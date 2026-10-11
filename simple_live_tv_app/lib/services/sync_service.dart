@@ -1176,6 +1176,7 @@ async function submitImportFollow() {
       body: text
     });
     const res = await resp.json();
+    status.style.display = 'block';
     if(res.status) {
       status.className = 'status-msg status-success';
       status.innerText = '🎉 ' + (res.message || '关注导入成功！');
@@ -1187,6 +1188,7 @@ async function submitImportFollow() {
       status.innerText = '❌ 导入失败：' + (res.message || '未知错误');
     }
   } catch(e) {
+    status.style.display = 'block';
     status.className = 'status-msg status-error';
     status.innerText = '❌ 请求异常：' + e;
   } finally {
@@ -1211,6 +1213,7 @@ async function sendUrl() {
       body: JSON.stringify({ url: val })
     });
     const res = await resp.json();
+    status.style.display = 'block';
     if(res.success) {
       status.className = 'status-msg status-success';
       status.innerText = '🎉 ' + (res.message || '投送成功，电视正在播放！');
@@ -1220,6 +1223,7 @@ async function sendUrl() {
       status.innerText = '❌ 投送失败：' + (res.message || '未知错误');
     }
   } catch(e) {
+    status.style.display = 'block';
     status.className = 'status-msg status-error';
     status.innerText = '❌ 网络请求异常：' + e;
   } finally {
@@ -1283,6 +1287,7 @@ async function saveDouyuCookie() {
       body: JSON.stringify({ cookie: val })
     });
     const res = await resp.json();
+    status.style.display = 'block';
     if(res.status) {
       status.className = 'status-msg status-success';
       status.innerText = '🎉 斗鱼账号已成功同步并登录！';
@@ -1293,6 +1298,7 @@ async function saveDouyuCookie() {
       status.innerText = '❌ 同步失败：' + (res.message || '未知错误');
     }
   } catch(e) {
+    status.style.display = 'block';
     status.className = 'status-msg status-error';
     status.innerText = '❌ 请求异常：' + e;
   } finally {
@@ -1317,6 +1323,7 @@ async function saveBiliCookie() {
       body: JSON.stringify({ cookie: val })
     });
     const res = await resp.json();
+    status.style.display = 'block';
     if(res.status) {
       status.className = 'status-msg status-success';
       status.innerText = '🎉 哔哩哔哩账号已成功同步！';
@@ -1327,6 +1334,7 @@ async function saveBiliCookie() {
       status.innerText = '❌ 同步失败：' + (res.message || '未知错误');
     }
   } catch(e) {
+    status.style.display = 'block';
     status.className = 'status-msg status-error';
     status.innerText = '❌ 请求异常：' + e;
   } finally {
