@@ -1386,9 +1386,9 @@ async function logoutAccount(type) {
         return toJsonResponse({'success': false, 'message': '获取房间信息失败：$e'});
       }
 
-      // 如果是小红书，自动同步/迁移已关注主播的历史场次到最新场次
+      // 小红书平台单场次特性：关播后场次失效，不支持常驻关注；若有历史残留关注则自动清理
       if (parsed.siteId == Constant.kXiaohongshu && detail.userName.isNotEmpty) {
-        _migrateXiaohongshuFollow(parsed.roomId, detail);
+        _cleanXiaohongshuOldFollows(detail);
       }
 
       // 在主线程安全跳转
@@ -1412,7 +1412,7 @@ async function logoutAccount(type) {
     return cleanA.isNotEmpty && cleanA != "小红书主播" && cleanA == cleanB;
   }
 
-  void _migrateXiaohongshuFollow(String newRoomId, LiveRoomDetail detail) {
+  void _cleanXiaohongshuOldFollows(LiveRoomDetail detail) {
     try {
       final name = detail.userName.trim();
       if (name.isEmpty || name == "小红书主播") return;
@@ -1420,31 +1420,14 @@ async function logoutAccount(type) {
       final allFollows = DBService.instance.getFollowList();
       final oldFollows = allFollows.where((f) =>
           f.siteId == Constant.kXiaohongshu &&
-          _isSameXiaohongshuAnchor(f.userName, name) &&
-          f.roomId != newRoomId).toList();
+          _isSameXiaohongshuAnchor(f.userName, name)).toList();
 
-      if (oldFollows.isNotEmpty) {
-        DateTime addTime = DateTime.now();
-        for (final old in oldFollows) {
-          addTime = old.addTime;
-          DBService.instance.deleteFollow(old.id);
-        }
-        final newFollowId = "${Constant.kXiaohongshu}_$newRoomId";
-        final newFollow = FollowUser(
-          id: newFollowId,
-          roomId: newRoomId,
-          siteId: Constant.kXiaohongshu,
-          userName: detail.userName,
-          face: detail.userAvatar,
-          addTime: addTime,
-        );
-        newFollow.liveStatus.value = detail.status ? 2 : 1;
-        DBService.instance.addFollow(newFollow);
-        EventBus.instance.emit(Constant.kUpdateFollow, newFollowId);
-        Log.i("小红书关注场次已自动迁移至新房间: $newRoomId");
+      for (final old in oldFollows) {
+        DBService.instance.deleteFollow(old.id);
+        EventBus.instance.emit(Constant.kUpdateFollow, old.id);
       }
     } catch (e, stackTrace) {
-      Log.e("小红书SyncService关注迁移异常: $e", stackTrace);
+      Log.e("小红书SyncService关注清理异常: $e", stackTrace);
     }
   }
 

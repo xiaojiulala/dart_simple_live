@@ -10,8 +10,11 @@ import 'package:simple_live_tv_app/app/sites.dart';
 import 'package:simple_live_tv_app/app/utils.dart';
 import 'package:simple_live_tv_app/modules/live_room/live_room_controller.dart';
 import 'package:simple_live_tv_app/services/follow_user_service.dart';
+import 'package:flutter_smart_dialog/flutter_smart_dialog.dart';
+import 'package:simple_live_tv_app/app/constant.dart';
 import 'package:simple_live_tv_app/widgets/button/highlight_button.dart';
 import 'package:simple_live_tv_app/widgets/card/anchor_card.dart';
+import 'package:simple_live_tv_app/widgets/highlight_widget.dart';
 import 'package:simple_live_tv_app/widgets/settings_item_widget.dart';
 import 'package:simple_live_tv_app/widgets/status/app_empty_widget.dart';
 
@@ -86,7 +89,9 @@ Widget buildControls(VideoState videoState, LiveRoomController controller) {
                         style: AppStyle.textStyleWhite,
                       ),
                       Text(
-                        "${controller.detail.value?.userName} · ${controller.followed.value ? "已关注" : "未关注"}",
+                        controller.rxSite.value.id == Constant.kXiaohongshu
+                            ? "${controller.detail.value?.userName} · 手机投送直播 (单场次)"
+                            : "${controller.detail.value?.userName} · ${controller.followed.value ? "已关注" : "未关注"}",
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                         style: AppStyle.textStyleWhite.copyWith(fontSize: 24.w),
@@ -426,20 +431,58 @@ void showPlayerSettings(LiveRoomController controller) {
             padding: AppStyle.edgeInsetsA48,
             children: [
               Obx(
-                () => SettingsItemWidget(
-                  foucsNode: followFocusNode,
-                  autofocus: followFocusNode.isFoucsed.value,
-                  title: "关注用户",
-                  items: const {false: "否", true: "是"},
-                  value: controller.followed.value,
-                  onChanged: (e) {
-                    if (e) {
-                      controller.followUser();
-                    } else {
-                      controller.removeFollowUser();
-                    }
-                  },
-                ),
+                () => controller.rxSite.value.id == Constant.kXiaohongshu
+                    ? HighlightWidget(
+                        focusNode: followFocusNode,
+                        autofocus: followFocusNode.isFoucsed.value,
+                        borderRadius: AppStyle.radius16,
+                        color: Colors.white10,
+                        onTap: () {
+                          SmartDialog.showToast(
+                            "小红书为单场次直播，不支持常驻关注。\n下次观看请直接通过手机分享链接投送。",
+                          );
+                        },
+                        child: Padding(
+                          padding: AppStyle.edgeInsetsA24,
+                          child: Row(
+                            children: [
+                              Text(
+                                "关注用户",
+                                style: TextStyle(
+                                  fontSize: 28.w,
+                                  color: followFocusNode.isFoucsed.value
+                                      ? Colors.black
+                                      : Colors.grey,
+                                ),
+                              ),
+                              const Spacer(),
+                              Text(
+                                "单场次不可关注 (推荐手机投送)",
+                                style: TextStyle(
+                                  fontSize: 24.w,
+                                  color: followFocusNode.isFoucsed.value
+                                      ? Colors.black54
+                                      : Colors.grey,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      )
+                    : SettingsItemWidget(
+                        foucsNode: followFocusNode,
+                        autofocus: followFocusNode.isFoucsed.value,
+                        title: "关注用户",
+                        items: const {false: "否", true: "是"},
+                        value: controller.followed.value,
+                        onChanged: (e) {
+                          if (e) {
+                            controller.followUser();
+                          } else {
+                            controller.removeFollowUser();
+                          }
+                        },
+                      ),
               ),
 
               Divider(color: Colors.grey.withAlpha(50), height: 36.w),
