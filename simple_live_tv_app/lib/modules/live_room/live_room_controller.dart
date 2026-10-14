@@ -537,7 +537,7 @@ class LiveRoomController extends PlayerController with WidgetsBindingObserver {
       final hours = account.remainingHours;
       Future.delayed(const Duration(seconds: 2), () {
         if (isClosed || isBackground) return;
-        final text = "💡【系统提醒】斗鱼登录授权将在 $hours 小后到期，请抽空重新扫码续期";
+        final text = "💡【系统提醒】斗鱼登录授权将在 $hours 小时后到期，请抽空重新扫码续期";
         if (showDanmakuState.value && danmakuController != null) {
           addDanmaku([
             DanmakuContentItem(
