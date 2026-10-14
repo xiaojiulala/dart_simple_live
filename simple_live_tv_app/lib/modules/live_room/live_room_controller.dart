@@ -17,6 +17,7 @@ import 'package:simple_live_tv_app/models/db/follow_user.dart';
 import 'package:simple_live_tv_app/models/db/history.dart';
 import 'package:simple_live_tv_app/modules/live_room/player/player_controller.dart';
 import 'package:simple_live_tv_app/services/db_service.dart';
+import 'package:simple_live_tv_app/services/douyu_account_service.dart';
 import 'package:simple_live_tv_app/services/follow_user_service.dart';
 
 class LiveRoomController extends PlayerController with WidgetsBindingObserver {
@@ -493,9 +494,64 @@ class LiveRoomController extends PlayerController with WidgetsBindingObserver {
       }
 
       getPlayUrl();
+      _checkDouyuCookieExpirationNotice();
     } catch (e) {
       Log.logPrint(e);
       SmartDialog.showToast("无法读取播放清晰度");
+    }
+  }
+
+  bool _douyuExpiryNoticeChecked = false;
+
+  void _checkDouyuCookieExpirationNotice() {
+    if (_douyuExpiryNoticeChecked) return;
+    if (site.id != Constant.kDouyu) return;
+    final account = DouyuAccountService.instance;
+    if (!account.logined.value || account.cookie.isEmpty) return;
+
+    _douyuExpiryNoticeChecked = true;
+
+    if (account.isExpired) {
+      Future.delayed(const Duration(seconds: 2), () {
+        if (isClosed || isBackground) return;
+        const text = "⚠️【系统提醒】斗鱼登录授权已过期，4K/2K 超清已受限，请重新扫码登录！";
+        if (showDanmakuState.value && danmakuController != null) {
+          addDanmaku([
+            DanmakuContentItem(
+              text,
+              type: DanmakuItemType.top,
+              selfSend: true,
+              color: const Color(0xFFFF5252),
+            ),
+          ]);
+        } else {
+          SmartDialog.showToast(
+            text,
+            displayTime: const Duration(seconds: 6),
+          );
+        }
+      });
+    } else if (account.remainingDays <= 1) {
+      final hours = account.remainingHours;
+      Future.delayed(const Duration(seconds: 2), () {
+        if (isClosed || isBackground) return;
+        final text = "💡【系统提醒】斗鱼登录授权将在 $hours 小时后到期，请抽空重新扫码续期";
+        if (showDanmakuState.value && danmakuController != null) {
+          addDanmaku([
+            DanmakuContentItem(
+              text,
+              type: DanmakuItemType.top,
+              selfSend: true,
+              color: const Color(0xFFFFB300),
+            ),
+          ]);
+        } else {
+          SmartDialog.showToast(
+            text,
+            displayTime: const Duration(seconds: 5),
+          );
+        }
+      });
     }
   }
 
@@ -847,6 +903,7 @@ class LiveRoomController extends PlayerController with WidgetsBindingObserver {
 
     rxSite.value = site;
     rxRoomId.value = roomId;
+    _douyuExpiryNoticeChecked = false;
 
     // 清除全部消息
     liveDanmaku.stop();

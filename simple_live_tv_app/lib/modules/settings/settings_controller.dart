@@ -82,6 +82,20 @@ class SettingsController extends BaseController
 
   void douyuTap() async {
     if (DouyuAccountService.instance.logined.value) {
+      if (DouyuAccountService.instance.isExpired) {
+        var result = await Utils.showAlertDialog(
+          "当前斗鱼登录授权已过期，是否立即重新扫码登录？\n（点击确定重新扫码，点击取消可退出账号）",
+          title: "斗鱼登录已过期",
+          confirm: "重新扫码",
+          cancel: "退出登录",
+        );
+        if (result) {
+          AppNavigator.toDouyuLogin();
+        } else {
+          DouyuAccountService.instance.logout();
+        }
+        return;
+      }
       var result = await Utils.showAlertDialog("确定要退出斗鱼账号吗？", title: "退出登录");
       if (result) {
         DouyuAccountService.instance.logout();

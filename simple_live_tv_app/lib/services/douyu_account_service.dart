@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'dart:math';
 
 import 'package:get/get.dart';
@@ -15,6 +16,66 @@ class DouyuAccountService extends GetxService {
   var cookie = "";
   var uid = 0;
   var name = "未登录".obs;
+  var expireTime = Rx<DateTime?>(null);
+
+  bool get isExpired {
+    if (!logined.value || cookie.isEmpty) return false;
+    final exp = expireTime.value;
+    if (exp == null) return false;
+    return DateTime.now().isAfter(exp);
+  }
+
+  int get remainingDays {
+    final exp = expireTime.value;
+    if (exp == null) return 0;
+    final diff = exp.difference(DateTime.now());
+    if (diff.isNegative) return 0;
+    return (diff.inHours / 24).ceil();
+  }
+
+  int get remainingHours {
+    final exp = expireTime.value;
+    if (exp == null) return 0;
+    final diff = exp.difference(DateTime.now());
+    if (diff.isNegative) return 0;
+    return diff.inHours;
+  }
+
+  String get expireDateText {
+    final exp = expireTime.value;
+    if (exp == null) return "";
+    var y = exp.year.toString().padLeft(4, '0');
+    var m = exp.month.toString().padLeft(2, '0');
+    var d = exp.day.toString().padLeft(2, '0');
+    var h = exp.hour.toString().padLeft(2, '0');
+    var min = exp.minute.toString().padLeft(2, '0');
+    return "$y-$m-$d $h:$min";
+  }
+
+  DateTime? _parseJwtExpireTime(String cookieStr) {
+    if (cookieStr.isEmpty) return null;
+    var token = _parseCookieValue(cookieStr, "acf_jwt_token");
+    if (token.isEmpty) {
+      token = _parseCookieValue(cookieStr, "acf_dmjwt_token");
+    }
+    if (token.isEmpty) return null;
+    var parts = token.split('.');
+    if (parts.length < 2) return null;
+    try {
+      var normalized = base64Url.normalize(parts[1]);
+      var payloadStr = utf8.decode(base64Url.decode(normalized));
+      var payload = jsonDecode(payloadStr);
+      if (payload is Map && payload.containsKey("exp")) {
+        var exp = payload["exp"];
+        if (exp is int) {
+          return DateTime.fromMillisecondsSinceEpoch(exp * 1000);
+        } else if (exp is num) {
+          return DateTime.fromMillisecondsSinceEpoch(exp.toInt() * 1000);
+        }
+      }
+    } catch (_) {}
+    return null;
+  }
 
   @override
   void onInit() {
@@ -23,6 +84,7 @@ class DouyuAccountService extends GetxService {
     name.value = LocalStorageService.instance
         .getValue(LocalStorageService.kDouyuUserName, "未登录");
     logined.value = cookie.isNotEmpty;
+    expireTime.value = _parseJwtExpireTime(cookie);
     setSite();
     if (logined.value) {
       loadUserInfo();
@@ -141,6 +203,7 @@ class DouyuAccountService extends GetxService {
       }
     }
     logined.value = cookie.isNotEmpty;
+    expireTime.value = _parseJwtExpireTime(cookie);
     setSite();
   }
 
@@ -148,6 +211,7 @@ class DouyuAccountService extends GetxService {
     cookie = "";
     uid = 0;
     name.value = "未登录";
+    expireTime.value = null;
     setSite();
     LocalStorageService.instance
         .setValue(LocalStorageService.kDouyuCookie, "");

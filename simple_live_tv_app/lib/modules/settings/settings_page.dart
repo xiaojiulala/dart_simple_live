@@ -681,9 +681,19 @@ class SettingsPage extends GetView<SettingsController> {
             focusNode: controller.douyuFocusNode,
             autofocus: controller.douyuFocusNode.isFoucsed.value,
             title: "斗鱼账号",
-            subtitle: DouyuAccountService.instance.logined.value
-                ? "已登录：${DouyuAccountService.instance.name.value}"
-                : "未登录，点击登录",
+            subtitle: () {
+              final douyu = DouyuAccountService.instance;
+              if (!douyu.logined.value || douyu.cookie.isEmpty) {
+                return "未登录，点击登录";
+              }
+              if (douyu.isExpired) {
+                return "⚠️ 登录已过期（4K/2K需重新扫码）";
+              }
+              if (douyu.remainingDays <= 1) {
+                return "已登录：${douyu.name.value}（⚠️ 授权剩余${douyu.remainingHours}小时）";
+              }
+              return "已登录：${douyu.name.value}（授权剩余${douyu.remainingDays}天）";
+            }(),
             leading: Image.asset(
               "assets/images/douyu.png",
               width: 64.w,

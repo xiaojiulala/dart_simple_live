@@ -577,6 +577,10 @@ class SyncService extends GetxService {
         'logined': DouyuAccountService.instance.logined.value,
         'name': DouyuAccountService.instance.name.value,
         'uid': DouyuAccountService.instance.uid,
+        'expired': DouyuAccountService.instance.isExpired,
+        'remainingDays': DouyuAccountService.instance.remainingDays,
+        'remainingHours': DouyuAccountService.instance.remainingHours,
+        'expireDateText': DouyuAccountService.instance.expireDateText,
       },
     });
   }
@@ -1249,14 +1253,24 @@ async function loadAccountStatus() {
       const d = document.getElementById('douyuStatusDesc');
       const btn = document.getElementById('douyuLogoutBtn');
       if (data.douyu.logined) {
-        b.innerText = '✅ 已登录: ' + (data.douyu.name || '斗鱼用户');
-        b.style.background = '#4caf50';
-        d.innerText = '已成功绑定斗鱼账号，可享受高清/原画永久免断流播放。UID: ' + (data.douyu.uid || '--');
         btn.style.display = 'inline-block';
+        if (data.douyu.expired) {
+          b.innerText = '⚠️ 授权已过期';
+          b.style.background = '#ff5252';
+          d.innerHTML = '<span style="color:#ff5252;font-weight:bold;">⚠️ 登录凭据已过期（4K/2K 超清已受限），请重新获取 Cookie 同步！</span><br>到期时间: ' + (data.douyu.expireDateText || '--') + ' (UID: ' + (data.douyu.uid || '--') + ')';
+        } else if (data.douyu.remainingDays <= 1) {
+          b.innerText = '⚡ 剩余 ' + (data.douyu.remainingHours || 0) + ' 小时';
+          b.style.background = '#ff9800';
+          d.innerHTML = '已登录: <b>' + (data.douyu.name || '斗鱼用户') + '</b> (UID: ' + (data.douyu.uid || '--') + ')<br><span style="color:#ff9800;">⚡ 授权即将于 ' + (data.douyu.expireDateText || '--') + ' 到期，请尽快续期</span>';
+        } else {
+          b.innerText = '✅ 已登录 (余 ' + data.douyu.remainingDays + ' 天)';
+          b.style.background = '#4caf50';
+          d.innerText = '已成功绑定斗鱼账号，可享受4K及原画免断流播放。UID: ' + (data.douyu.uid || '--') + ' | 有效期至: ' + (data.douyu.expireDateText || '--');
+        }
       } else {
         b.innerText = '⚠️ 未登录';
         b.style.background = '#ff9800';
-        d.innerText = '提示：未登录时由于斗鱼防盗链限制最高画质可能几分钟断流重连；登录后可享永久不断流租约。';
+        d.innerText = '提示：未登录时仅提供最高1080P清晰度；登录后可解锁4K及蓝光原画。';
         btn.style.display = 'none';
       }
     }
