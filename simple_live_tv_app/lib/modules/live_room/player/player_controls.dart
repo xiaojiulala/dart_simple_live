@@ -9,6 +9,7 @@ import 'package:simple_live_tv_app/app/controller/app_settings_controller.dart';
 import 'package:simple_live_tv_app/app/sites.dart';
 import 'package:simple_live_tv_app/app/utils.dart';
 import 'package:simple_live_tv_app/modules/live_room/live_room_controller.dart';
+import 'package:simple_live_tv_app/services/bilibili_account_service.dart';
 import 'package:simple_live_tv_app/services/douyu_account_service.dart';
 import 'package:simple_live_tv_app/services/follow_user_service.dart';
 import 'package:flutter_smart_dialog/flutter_smart_dialog.dart';
@@ -799,6 +800,15 @@ String _getQualityTitle(LiveRoomController controller) {
       return "清晰度 (斗鱼·⚠️余${douyu.remainingHours}小时)";
     }
     return "清晰度 (斗鱼已登录·余${douyu.remainingDays}天)";
+  } else if (controller.rxSite.value.id == Constant.kBiliBili) {
+    final bili = BiliBiliAccountService.instance;
+    if (!bili.logined.value || bili.cookie.isEmpty) {
+      return "清晰度 (B站未登录·限720P)";
+    }
+    if (bili.isExpired) {
+      return "清晰度 (⚠️B站授权已过期)";
+    }
+    return "清晰度 (B站已登录·余${bili.remainingDays}天)";
   }
   return "清晰度";
 }

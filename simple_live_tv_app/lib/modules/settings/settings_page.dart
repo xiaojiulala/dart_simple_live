@@ -664,9 +664,16 @@ class SettingsPage extends GetView<SettingsController> {
             focusNode: controller.bilibiliFoucsNode,
             autofocus: controller.bilibiliFoucsNode.isFoucsed.value,
             title: "哔哩哔哩账号",
-            subtitle: BiliBiliAccountService.instance.logined.value
-                ? "已登录：${BiliBiliAccountService.instance.name.value}"
-                : "未登录，点击登录",
+            subtitle: () {
+              final bili = BiliBiliAccountService.instance;
+              if (!bili.logined.value || bili.cookie.isEmpty) {
+                return "未登录，点击登录（未登录最高限720P）";
+              }
+              if (bili.isExpired) {
+                return "⚠️ 登录已过期（画质受限，需重新扫码）";
+              }
+              return "已登录：${bili.name.value}（授权剩余${bili.remainingDays}天）";
+            }(),
             leading: Image.asset(
               "assets/images/bilibili.png",
               width: 64.w,

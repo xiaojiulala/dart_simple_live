@@ -71,6 +71,20 @@ class SettingsController extends BaseController
 
   void bilibiliTap() async {
     if (BiliBiliAccountService.instance.logined.value) {
+      if (BiliBiliAccountService.instance.isExpired) {
+        var result = await Utils.showAlertDialog(
+          "当前哔哩哔哩登录授权已过期，是否立即重新扫码登录？\n（点击确定重新扫码，点击取消可退出账号）",
+          title: "B站登录已过期",
+          confirm: "重新扫码",
+          cancel: "退出登录",
+        );
+        if (result) {
+          AppNavigator.toBiliBiliLogin();
+        } else {
+          BiliBiliAccountService.instance.logout();
+        }
+        return;
+      }
       var result = await Utils.showAlertDialog("确定要退出哔哩哔哩账号吗？", title: "退出登录");
       if (result) {
         BiliBiliAccountService.instance.logout();

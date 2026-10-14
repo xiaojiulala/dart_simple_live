@@ -572,6 +572,11 @@ class SyncService extends GetxService {
       'bilibili': {
         'logined': BiliBiliAccountService.instance.logined.value,
         'name': BiliBiliAccountService.instance.name.value,
+        'uid': BiliBiliAccountService.instance.uid,
+        'expired': BiliBiliAccountService.instance.isExpired,
+        'remainingDays': BiliBiliAccountService.instance.remainingDays,
+        'remainingHours': BiliBiliAccountService.instance.remainingHours,
+        'expireDateText': BiliBiliAccountService.instance.expireDateText,
       },
       'douyu': {
         'logined': DouyuAccountService.instance.logined.value,
@@ -1279,14 +1284,24 @@ async function loadAccountStatus() {
       const d = document.getElementById('biliStatusDesc');
       const btn = document.getElementById('biliLogoutBtn');
       if (data.bilibili.logined) {
-        b.innerText = '✅ 已登录: ' + (data.bilibili.name || 'B站用户');
-        b.style.background = '#4caf50';
-        d.innerText = '已成功绑定哔哩哔哩账号，支持高画质解码。';
         btn.style.display = 'inline-block';
+        if (data.bilibili.expired) {
+          b.innerText = '⚠️ 授权已过期';
+          b.style.background = '#ff5252';
+          d.innerHTML = '<span style="color:#ff5252;font-weight:bold;">⚠️ 哔哩哔哩登录凭据已过期（画质受限最高720P），请重新获取 Cookie 同步！</span><br>到期时间: ' + (data.bilibili.expireDateText || '--');
+        } else if (data.bilibili.remainingDays <= 7) {
+          b.innerText = '⚡ 剩余 ' + data.bilibili.remainingDays + ' 天';
+          b.style.background = '#ff9800';
+          d.innerHTML = '已登录: <b>' + (data.bilibili.name || 'B站用户') + '</b><br><span style="color:#ff9800;">⚡ 授权将于 ' + (data.bilibili.expireDateText || '--') + ' 到期，请适时续期</span>';
+        } else {
+          b.innerText = '✅ 已登录 (余 ' + data.bilibili.remainingDays + ' 天)';
+          b.style.background = '#4caf50';
+          d.innerText = '已成功绑定哔哩哔哩账号，支持高画质/原画解码。UID: ' + (data.bilibili.uid || '--') + ' | 有效期至: ' + (data.bilibili.expireDateText || '--');
+        }
       } else {
         b.innerText = '⚠️ 未登录';
         b.style.background = '#ff9800';
-        d.innerText = '提示：未登录时最高仅能观看基础画质，登录后可同步原画/高码率权限。';
+        d.innerText = '提示：未登录时仅提供最高720P清晰度；登录后可解锁1080P高码率及原画画质。';
         btn.style.display = 'none';
       }
     }

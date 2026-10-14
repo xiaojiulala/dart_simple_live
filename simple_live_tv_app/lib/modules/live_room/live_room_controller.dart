@@ -16,6 +16,7 @@ import 'package:simple_live_tv_app/app/utils.dart';
 import 'package:simple_live_tv_app/models/db/follow_user.dart';
 import 'package:simple_live_tv_app/models/db/history.dart';
 import 'package:simple_live_tv_app/modules/live_room/player/player_controller.dart';
+import 'package:simple_live_tv_app/services/bilibili_account_service.dart';
 import 'package:simple_live_tv_app/services/db_service.dart';
 import 'package:simple_live_tv_app/services/douyu_account_service.dart';
 import 'package:simple_live_tv_app/services/follow_user_service.dart';
@@ -495,6 +496,7 @@ class LiveRoomController extends PlayerController with WidgetsBindingObserver {
 
       getPlayUrl();
       _checkDouyuCookieExpirationNotice();
+      _checkBilibiliCookieExpirationNotice();
     } catch (e) {
       Log.logPrint(e);
       SmartDialog.showToast("无法读取播放清晰度");
@@ -535,7 +537,80 @@ class LiveRoomController extends PlayerController with WidgetsBindingObserver {
       final hours = account.remainingHours;
       Future.delayed(const Duration(seconds: 2), () {
         if (isClosed || isBackground) return;
-        final text = "💡【系统提醒】斗鱼登录授权将在 $hours 小时后到期，请抽空重新扫码续期";
+        final text = "💡【系统提醒】斗鱼登录授权将在 $hours 小后到期，请抽空重新扫码续期";
+        if (showDanmakuState.value && danmakuController != null) {
+          addDanmaku([
+            DanmakuContentItem(
+              text,
+              type: DanmakuItemType.top,
+              selfSend: true,
+              color: const Color(0xFFFFB300),
+            ),
+          ]);
+        } else {
+          SmartDialog.showToast(
+            text,
+            displayTime: const Duration(seconds: 5),
+          );
+        }
+      });
+    }
+  }
+
+  bool _bilibiliExpiryNoticeChecked = false;
+
+  void _checkBilibiliCookieExpirationNotice() {
+    if (_bilibiliExpiryNoticeChecked) return;
+    if (site.id != Constant.kBiliBili) return;
+    final account = BiliBiliAccountService.instance;
+
+    _bilibiliExpiryNoticeChecked = true;
+
+    if (account.cookie.isNotEmpty && account.isExpired) {
+      Future.delayed(const Duration(seconds: 2), () {
+        if (isClosed || isBackground) return;
+        const text = "⚠️【系统提醒】哔哩哔哩登录授权已过期，高清画质已受限（最高720P），请重新扫码登录！";
+        if (showDanmakuState.value && danmakuController != null) {
+          addDanmaku([
+            DanmakuContentItem(
+              text,
+              type: DanmakuItemType.top,
+              selfSend: true,
+              color: const Color(0xFFFF5252),
+            ),
+          ]);
+        } else {
+          SmartDialog.showToast(
+            text,
+            displayTime: const Duration(seconds: 6),
+          );
+        }
+      });
+    } else if (!account.logined.value || account.cookie.isEmpty) {
+      Future.delayed(const Duration(seconds: 2), () {
+        if (isClosed || isBackground) return;
+        const text = "💡【系统提醒】哔哩哔哩未登录，当前画质受限最高720P，前往“设置”扫码可解锁1080P/原画";
+        if (showDanmakuState.value && danmakuController != null) {
+          addDanmaku([
+            DanmakuContentItem(
+              text,
+              type: DanmakuItemType.top,
+              selfSend: true,
+              color: const Color(0xFFFFB300),
+            ),
+          ]);
+        } else {
+          SmartDialog.showToast(
+            text,
+            displayTime: const Duration(seconds: 5),
+          );
+        }
+      });
+    } else if (account.remainingDays <= 7) {
+      final days = account.remainingDays;
+      Future.delayed(const Duration(seconds: 2), () {
+        if (isClosed || isBackground) return;
+        final text = "💡【系统提醒】哔哩哔哩登录授权将在 $days 天后到期，请抽空重新扫码续期";
         if (showDanmakuState.value && danmakuController != null) {
           addDanmaku([
             DanmakuContentItem(
@@ -904,6 +979,7 @@ class LiveRoomController extends PlayerController with WidgetsBindingObserver {
     rxSite.value = site;
     rxRoomId.value = roomId;
     _douyuExpiryNoticeChecked = false;
+    _bilibiliExpiryNoticeChecked = false;
 
     // 清除全部消息
     liveDanmaku.stop();
