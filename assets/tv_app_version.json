@@ -3,5 +3,5 @@
     "version_num": 10813,
     "version_desc": "- 关注列表刷新逻辑重构（杜绝播放卡顿）：看直播期间挂起定时轮询，退出直播间后检测若已达周期才触发刷新，未达周期零开销。\n- 双缓冲静默刷新与原子就位：后台拉取所有主播最新开播状态并排序后一次性原子更新，彻底消除卡片逐个亮灯跳位和清空闪烁。\n- 退出直播间无感归顶与精准聚焦：退出播放器返回首页时瞬间静默归顶，焦点自动吸附在首个直播间卡片上，无需手动回拉。\n- “我的关注”状态胶囊指示器：标题旁动态展示【刷新中...】与【✓ 刷新完毕 (X人开播)】徽标，3秒后自动淡出，反馈清晰直观。",
     "prerelease": false,
-    "download_url": "https://github.com/June6699/dart_simple_live/releases/tag/tv_v1.7.6"
+    "download_url": "https://github.com/xiaojiulala/dart_simple_live/releases/tag/tv_v1.8.13"
 }
