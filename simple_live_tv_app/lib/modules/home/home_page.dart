@@ -56,6 +56,7 @@ class HomePage extends GetView<HomeController> {
           ),
           Expanded(
             child: ListView(
+              controller: controller.scrollController,
               padding: AppStyle.edgeInsetsV32,
               children: [
                 Padding(
@@ -140,34 +141,70 @@ class HomePage extends GetView<HomeController> {
                         ),
                       ),
                       AppStyle.hGap24,
-                      Expanded(
-                        child: Text(
-                          "我的关注",
-                          style: AppStyle.titleStyleWhite,
-                        ),
+                      Text(
+                        "我的关注",
+                        style: AppStyle.titleStyleWhite,
                       ),
+                      AppStyle.hGap20,
                       Obx(
-                        () => Visibility(
-                          visible: FollowUserService.instance.updating.value,
-                          child: Row(
-                            children: [
-                              SizedBox(
-                                width: 48.w,
-                                height: 48.w,
-                                child: CircularProgressIndicator(
-                                  color: Colors.white,
-                                  strokeWidth: 4.w,
+                        () {
+                          final state =
+                              FollowUserService.instance.updateState.value;
+                          if (state == 0) return const SizedBox.shrink();
+                          final isUpdating = state == 1;
+                          return Container(
+                            padding: EdgeInsets.symmetric(
+                              horizontal: 16.w,
+                              vertical: 6.w,
+                            ),
+                            decoration: BoxDecoration(
+                              color: isUpdating
+                                  ? Colors.white12
+                                  : Colors.green.withOpacity(0.2),
+                              borderRadius: BorderRadius.circular(20.w),
+                              border: Border.all(
+                                color: isUpdating
+                                    ? Colors.white24
+                                    : Colors.greenAccent,
+                                width: 1.5.w,
+                              ),
+                            ),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                if (isUpdating)
+                                  SizedBox(
+                                    width: 24.w,
+                                    height: 24.w,
+                                    child: CircularProgressIndicator(
+                                      color: Colors.white,
+                                      strokeWidth: 3.w,
+                                    ),
+                                  )
+                                else
+                                  Icon(
+                                    Icons.check_circle_rounded,
+                                    color: Colors.greenAccent,
+                                    size: 26.w,
+                                  ),
+                                AppStyle.hGap12,
+                                Text(
+                                  FollowUserService
+                                      .instance.refreshStatusText.value,
+                                  style: TextStyle(
+                                    color: isUpdating
+                                        ? Colors.white70
+                                        : Colors.greenAccent,
+                                    fontSize: 22.w,
+                                    fontWeight: FontWeight.w500,
+                                  ),
                                 ),
-                              ),
-                              AppStyle.hGap16,
-                              Text(
-                                "更新状态中...",
-                                style: AppStyle.textStyleWhite,
-                              ),
-                            ],
-                          ),
-                        ),
+                              ],
+                            ),
+                          );
+                        },
                       ),
+                      const Spacer(),
                       AppStyle.hGap16,
                       HighlightButton(
                         focusNode: AppFocusNode(),
@@ -206,6 +243,7 @@ class HomePage extends GetView<HomeController> {
                           siteId: item.siteId,
                           liveStatus: item.liveStatus.value,
                           roomId: item.roomId,
+                          focusNode: item.focusNode,
                         ),
                       );
                     },

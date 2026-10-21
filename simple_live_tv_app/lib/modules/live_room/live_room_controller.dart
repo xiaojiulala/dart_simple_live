@@ -20,6 +20,7 @@ import 'package:simple_live_tv_app/services/bilibili_account_service.dart';
 import 'package:simple_live_tv_app/services/db_service.dart';
 import 'package:simple_live_tv_app/services/douyu_account_service.dart';
 import 'package:simple_live_tv_app/services/follow_user_service.dart';
+import 'package:simple_live_tv_app/modules/home/home_controller.dart';
 
 class LiveRoomController extends PlayerController with WidgetsBindingObserver {
   final Site pSite;
@@ -107,6 +108,7 @@ class LiveRoomController extends PlayerController with WidgetsBindingObserver {
 
   @override
   void onInit() {
+    FollowUserService.instance.isInLiveRoom = true;
     initTimer();
     _startLiveEventFlowTimer();
     showDanmakuState.value = AppSettingsController.instance.danmuEnable.value;
@@ -972,6 +974,7 @@ class LiveRoomController extends PlayerController with WidgetsBindingObserver {
   }
 
   void resetRoom(Site site, String roomId) async {
+    FollowUserService.instance.isInLiveRoom = true;
     if (this.site == site && this.roomId == roomId) {
       return;
     }
@@ -1070,6 +1073,10 @@ class LiveRoomController extends PlayerController with WidgetsBindingObserver {
     clearLiveEventFlow();
 
     danmakuController = null;
+    FollowUserService.instance.onExitLiveRoom();
+    if (Get.isRegistered<HomeController>()) {
+      Get.find<HomeController>().resetToTopAndFocusFirstRoom();
+    }
     super.onClose();
   }
 }

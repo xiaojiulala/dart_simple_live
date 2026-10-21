@@ -1,10 +1,11 @@
 import 'package:get/get.dart';
 import 'package:hive/hive.dart';
+import 'package:simple_live_tv_app/app/base_focus_model.dart';
 
 part 'follow_user.g.dart';
 
 @HiveType(typeId: 1)
-class FollowUser {
+class FollowUser extends BaseFocusModel {
   FollowUser({
     required this.id,
     required this.roomId,

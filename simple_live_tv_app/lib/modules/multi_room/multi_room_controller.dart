@@ -2,6 +2,8 @@ import 'package:flutter_smart_dialog/flutter_smart_dialog.dart';
 import 'package:get/get.dart';
 import 'package:simple_live_tv_app/modules/multi_room/multi_room_models.dart';
 import 'package:simple_live_tv_app/modules/multi_room/multi_room_player_controller.dart';
+import 'package:simple_live_tv_app/services/follow_user_service.dart';
+import 'package:simple_live_tv_app/modules/home/home_controller.dart';
 
 class MultiRoomController extends GetxController {
   final List<MultiRoomItem> initialRooms;
@@ -12,6 +14,7 @@ class MultiRoomController extends GetxController {
 
   @override
   void onInit() {
+    FollowUserService.instance.isInLiveRoom = true;
     super.onInit();
     rooms.assignAll(_distinct(initialRooms));
   }
@@ -56,6 +59,10 @@ class MultiRoomController extends GetxController {
       if (Get.isRegistered<MultiRoomPlayerController>(tag: tag)) {
         Get.delete<MultiRoomPlayerController>(tag: tag);
       }
+    }
+    FollowUserService.instance.onExitLiveRoom();
+    if (Get.isRegistered<HomeController>()) {
+      Get.find<HomeController>().resetToTopAndFocusFirstRoom();
     }
     super.onClose();
   }

@@ -23,7 +23,19 @@ class FollowUserService extends BasePageController<FollowUser> {
   bool needUpdate = true;
   int _updateGeneration = 0;
   DateTime? _lastUpdateStatusStartedAt;
+  DateTime? _lastRefreshInvokeAt;
   bool _forceNextStatusRefresh = false;
+
+  /// 是否当前处于直播间播放中（处于直播间时挂起定时刷新，退出后再按需刷新）
+  bool isInLiveRoom = false;
+
+  /// 在直播间内期间是否有推迟的刷新请求
+  bool pendingRefresh = false;
+
+  /// 刷新状态指示：0=空闲隐藏, 1=刷新中, 2=刷新完毕
+  var updateState = 0.obs;
+  var refreshStatusText = "".obs;
+  Timer? _completeNoticeTimer;
 
   FollowUserService() {
     pageSize = 60;
@@ -32,7 +44,9 @@ class FollowUserService extends BasePageController<FollowUser> {
   void onInit() {
     subscription = EventBus.instance.listen(Constant.kUpdateFollow, (p0) {
       needUpdate = false;
-      refreshData();
+      allList.assignAll(_sortFollowUsers(DBService.instance.getFollowList()));
+      sortList();
+      startUpdateStatus(allList.toList(), force: true);
     });
 
     if (list.isEmpty) {
@@ -51,7 +65,13 @@ class FollowUserService extends BasePageController<FollowUser> {
               AppSettingsController.instance.autoUpdateFollowDuration.value,
         ),
         (timer) {
-          Log.logPrint("Update Follow Timer");
+          Log.logPrint("Update Follow Timer triggered");
+          // 看直播时不刷新，避免后台并发请求导致前台播放丢帧卡顿
+          if (isInLiveRoom) {
+            Log.logPrint("当前处于直播间播放中，推迟关注状态刷新");
+            pendingRefresh = true;
+            return;
+          }
           refreshData(forceStatus: false);
         },
       );
@@ -60,19 +80,62 @@ class FollowUserService extends BasePageController<FollowUser> {
     }
   }
 
+  /// 退出直播间时调用：恢复挂起的刷新检查
+  void onExitLiveRoom() {
+    isInLiveRoom = false;
+    final now = DateTime.now();
+    final duration = Duration(
+      minutes:
+          AppSettingsController.instance.autoUpdateFollowDuration.value,
+    );
+    final elapsed = _lastUpdateStatusStartedAt != null
+        ? now.difference(_lastUpdateStatusStartedAt!)
+        : null;
+
+    Log.logPrint(
+      "退出直播间：pendingRefresh=$pendingRefresh, 距上次刷新=${elapsed?.inSeconds ?? -1}秒, 设定周期=${duration.inSeconds}秒",
+    );
+
+    // 如果看播期间定时器到达过（pendingRefresh），或距上次刷新已达到设定周期（如10分钟），才执行刷新
+    if (pendingRefresh || (elapsed != null && elapsed >= duration)) {
+      pendingRefresh = false;
+      Log.logPrint("退出直播间触发待处理的刷新任务");
+      refreshData(forceStatus: false);
+    } else {
+      Log.logPrint("退出直播间未达设定周期，跳过网络刷新");
+    }
+  }
+
   var updating = false.obs;
 
   @override
   Future refreshData({bool forceStatus = true}) async {
+    final now = DateTime.now();
+    final lastRefreshAt = _lastRefreshInvokeAt;
+    if (lastRefreshAt != null &&
+        now.difference(lastRefreshAt) < BasePageController.refreshCooldown) {
+      return;
+    }
+    _lastRefreshInvokeAt = now;
     _forceNextStatusRefresh = forceStatus;
-    await super.refreshData();
+
+    if (allList.isEmpty) {
+      allList.assignAll(_sortFollowUsers(DBService.instance.getFollowList()));
+      updateLivingList();
+      list.assignAll(allList.take(pageSize));
+    }
+
+    // 原地双缓冲更新，绝不清空 list.value = []，彻底避免界面黑屏闪烁
+    await startUpdateStatus(allList.toList(), force: forceStatus);
   }
 
   @override
   Future<List<FollowUser>> getData(int page, int pageSize) async {
     if (page == 1) {
-      allList.assignAll(_sortFollowUsers(DBService.instance.getFollowList()));
-      updateLivingList();
+      if (allList.isEmpty) {
+        allList.assignAll(_sortFollowUsers(DBService.instance.getFollowList()));
+        updateLivingList();
+      }
       if (needUpdate) {
         unawaited(startUpdateStatus(
           allList.toList(),
@@ -83,6 +146,7 @@ class FollowUserService extends BasePageController<FollowUser> {
       needUpdate = true;
       if (allList.isEmpty) {
         updating.value = false;
+        updateState.value = 0;
       }
     }
     final start = (page - 1) * pageSize;
@@ -165,6 +229,7 @@ class FollowUserService extends BasePageController<FollowUser> {
         now.difference(lastStartedAt) < updateStatusCooldown) {
       Log.logPrint("关注状态刷新过于频繁，已跳过本次网络刷新");
       updating.value = false;
+      updateState.value = 0;
       sortList();
       return;
     }
@@ -174,9 +239,13 @@ class FollowUserService extends BasePageController<FollowUser> {
       Log.logPrint("已有关注状态刷新任务，取消旧任务并启动新任务");
     }
     updating.value = true;
+    updateState.value = 1;
+    refreshStatusText.value = "刷新中...";
+    _completeNoticeTimer?.cancel();
 
     if (followList.isEmpty) {
       updating.value = false;
+      updateState.value = 0;
       return;
     }
 
@@ -187,6 +256,8 @@ class FollowUserService extends BasePageController<FollowUser> {
     );
 
     var taskQueue = Queue<FollowUser>.from(_interleaveByPlatform(followList));
+    // 双缓冲状态缓存：收集所有主播最新开播状态，不立即修改 UI 项，避免卡片逐个闪烁抽搐
+    final statusBuffer = <String, int>{};
 
     Future<void> worker() async {
       while (taskQueue.isNotEmpty) {
@@ -194,7 +265,20 @@ class FollowUserService extends BasePageController<FollowUser> {
           return;
         }
         var item = taskQueue.removeFirst();
-        await updateLiveStatus(item, generation: generation);
+        try {
+          var site = Sites.allSites[item.siteId]!;
+          final isLiving =
+              await site.liveSite.getLiveStatus(roomId: item.roomId);
+          if (generation != _updateGeneration) {
+            return;
+          }
+          statusBuffer[item.id] = isLiving ? 2 : 1;
+        } catch (e) {
+          if (generation != _updateGeneration) {
+            return;
+          }
+          Log.logPrint("获取主播[${item.userName}]状态异常: $e");
+        }
       }
     }
 
@@ -207,10 +291,29 @@ class FollowUserService extends BasePageController<FollowUser> {
     if (generation != _updateGeneration) {
       return;
     }
+
+    // 双缓冲应用：所有并发请求完成后，一次性原子更新状态值
+    for (var item in allList) {
+      if (statusBuffer.containsKey(item.id)) {
+        item.liveStatus.value = statusBuffer[item.id]!;
+      }
+    }
+
+    // 一次性原子排序并更新可见列表，杜绝分批洗牌跳位
     sortList();
     updating.value = false;
 
-    Log.logPrint("关注状态更新完成");
+    // 显示“刷新完毕”反馈，3秒后自动淡出消失
+    updateState.value = 2;
+    refreshStatusText.value = livingList.isEmpty
+        ? "刷新完毕"
+        : "刷新完毕 (${livingList.length}人开播)";
+    _completeNoticeTimer?.cancel();
+    _completeNoticeTimer = Timer(const Duration(seconds: 3), () {
+      updateState.value = 0;
+    });
+
+    Log.logPrint("关注状态更新完成（双缓冲原子就位）");
   }
 
   Future updateLiveStatus(FollowUser item, {int? generation}) async {
@@ -249,6 +352,8 @@ class FollowUserService extends BasePageController<FollowUser> {
   void onClose() {
     _updateGeneration++;
     updating.value = false;
+    updateState.value = 0;
+    _completeNoticeTimer?.cancel();
     updateTimer?.cancel();
     subscription?.cancel();
 
