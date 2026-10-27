@@ -40,7 +40,7 @@ class SettingsController extends BaseController
       }
     });
   }
-  var hardwareDecodeFocusNode = AppFocusNode()..isFoucsed.value = true;
+  var hardwareDecodeFocusNode = AppFocusNode();
   var compatibleModeFocusNode = AppFocusNode();
   var scaleFoucsNode = AppFocusNode();
   var defaultQualityFocusNode = AppFocusNode();

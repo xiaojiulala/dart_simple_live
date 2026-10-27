@@ -378,7 +378,7 @@ class HomePage extends GetView<HomeController> {
   void showSearchDialog() {
     var textController = TextEditingController();
     var mode = 0.obs;
-    var roomFocusNode = AppFocusNode()..isFoucsed.value = true;
+    var roomFocusNode = AppFocusNode();
     var anchorFocusNode = AppFocusNode();
     showDialog(
       context: Get.context!,
@@ -401,7 +401,7 @@ class HomePage extends GetView<HomeController> {
                     iconData: Icons.live_tv,
                     selected: mode.value == 0,
                     focusNode: roomFocusNode,
-                    autofocus: roomFocusNode.isFoucsed.value,
+                    autofocus: true,
                     onTap: () {
                       mode.value = 0;
                     },

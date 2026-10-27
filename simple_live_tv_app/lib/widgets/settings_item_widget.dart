@@ -52,48 +52,50 @@ class SettingsItemWidget extends StatelessWidget {
         showSettingsDialog();
       },
       child: Obx(
-        () => Padding(
-          padding: AppStyle.edgeInsetsA24,
-          child: Row(
-            children: [
-              Text(
-                title,
-                style: foucsNode.isFoucsed.value
-                    ? AppStyle.textStyleBlack
-                    : AppStyle.textStyleWhite,
-              ),
-              const Spacer(),
-              if (foucsNode.isFoucsed.value && items.isNotEmpty)
-                Icon(
-                  Icons.chevron_left,
-                  size: 40.w,
-                  color:
-                      foucsNode.isFoucsed.value ? Colors.black : Colors.white,
-                ),
-              AppStyle.hGap12,
-              ConstrainedBox(
-                constraints: BoxConstraints(minWidth: 120.w),
-                child: Text(
-                  items[value] ?? '',
-                  style: foucsNode.isFoucsed.value
+        () {
+          final isTrulyFocused =
+              foucsNode.isFoucsed.value && foucsNode.hasFocus;
+          return Padding(
+            padding: AppStyle.edgeInsetsA24,
+            child: Row(
+              children: [
+                Text(
+                  title,
+                  style: isTrulyFocused
                       ? AppStyle.textStyleBlack
                       : AppStyle.textStyleWhite,
-                  textAlign: foucsNode.isFoucsed.value
-                      ? TextAlign.center
-                      : TextAlign.right,
                 ),
-              ),
-              AppStyle.hGap12,
-              if (foucsNode.isFoucsed.value && items.isNotEmpty)
-                Icon(
-                  Icons.chevron_right,
-                  size: 40.w,
-                  color:
-                      foucsNode.isFoucsed.value ? Colors.black : Colors.white,
+                const Spacer(),
+                if (isTrulyFocused && items.isNotEmpty)
+                  Icon(
+                    Icons.chevron_left,
+                    size: 40.w,
+                    color: isTrulyFocused ? Colors.black : Colors.white,
+                  ),
+                AppStyle.hGap12,
+                ConstrainedBox(
+                  constraints: BoxConstraints(minWidth: 120.w),
+                  child: Text(
+                    items[value] ?? '',
+                    style: isTrulyFocused
+                        ? AppStyle.textStyleBlack
+                        : AppStyle.textStyleWhite,
+                    textAlign: isTrulyFocused
+                        ? TextAlign.center
+                        : TextAlign.right,
+                  ),
                 ),
-            ],
-          ),
-        ),
+                AppStyle.hGap12,
+                if (isTrulyFocused && items.isNotEmpty)
+                  Icon(
+                    Icons.chevron_right,
+                    size: 40.w,
+                    color: isTrulyFocused ? Colors.black : Colors.white,
+                  ),
+              ],
+            ),
+          );
+        },
       ),
     );
   }

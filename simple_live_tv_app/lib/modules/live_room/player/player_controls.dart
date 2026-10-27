@@ -389,7 +389,7 @@ void showPlayerSettings(LiveRoomController controller) {
   // 移除焦点
   controller.focusNode.unfocus();
 
-  var followFocusNode = AppFocusNode()..isFoucsed.value = true;
+  var followFocusNode = AppFocusNode();
   var qualityFoucsNode = AppFocusNode();
   var lineFoucsNode = AppFocusNode();
   var scaleFoucsNode = AppFocusNode();
@@ -436,7 +436,7 @@ void showPlayerSettings(LiveRoomController controller) {
                 () => controller.rxSite.value.id == Constant.kXiaohongshu
                     ? HighlightWidget(
                         focusNode: followFocusNode,
-                        autofocus: followFocusNode.isFoucsed.value,
+                        autofocus: false,
                         borderRadius: AppStyle.radius16,
                         color: Colors.white10,
                         onTap: () {
@@ -452,7 +452,7 @@ void showPlayerSettings(LiveRoomController controller) {
                                 "关注用户",
                                 style: TextStyle(
                                   fontSize: 28.w,
-                                  color: followFocusNode.isFoucsed.value
+                                  color: (followFocusNode.isFoucsed.value && followFocusNode.hasFocus)
                                       ? Colors.black
                                       : Colors.grey,
                                 ),
@@ -462,7 +462,7 @@ void showPlayerSettings(LiveRoomController controller) {
                                 "单场次不可关注 (推荐手机投送)",
                                 style: TextStyle(
                                   fontSize: 24.w,
-                                  color: followFocusNode.isFoucsed.value
+                                  color: (followFocusNode.isFoucsed.value && followFocusNode.hasFocus)
                                       ? Colors.black54
                                       : Colors.grey,
                                 ),
@@ -473,7 +473,7 @@ void showPlayerSettings(LiveRoomController controller) {
                       )
                     : SettingsItemWidget(
                         foucsNode: followFocusNode,
-                        autofocus: followFocusNode.isFoucsed.value,
+                        autofocus: false,
                         title: "关注用户",
                         items: const {false: "否", true: "是"},
                         value: controller.followed.value,

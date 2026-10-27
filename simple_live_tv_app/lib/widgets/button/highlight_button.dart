@@ -1,32 +1,34 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
-import 'package:get/get.dart';
 import 'package:simple_live_tv_app/app/app_focus_node.dart';
 import 'package:simple_live_tv_app/app/app_style.dart';
 import 'package:simple_live_tv_app/widgets/highlight_widget.dart';
 
 class HighlightButton extends StatelessWidget {
   final String text;
-  final IconData? iconData;
   final Widget? icon;
-  final AppFocusNode focusNode;
+  final IconData? iconData;
   final Function()? onTap;
+  final AppFocusNode focusNode;
   final bool autofocus;
   final bool selected;
   const HighlightButton({
-    this.iconData,
     required this.text,
     this.icon,
+    this.iconData,
     this.onTap,
     required this.focusNode,
     this.autofocus = false,
     this.selected = false,
     super.key,
   });
+
   @override
   Widget build(BuildContext context) {
-    return Obx(
-      () => HighlightWidget(
+    final isTrulyFocused =
+        (focusNode.isFoucsed.value && focusNode.hasFocus) || selected;
+    return Center(
+      child: HighlightWidget(
         focusNode: focusNode,
         borderRadius: AppStyle.radius32,
         color: Colors.white10,
@@ -35,7 +37,6 @@ class HighlightButton extends StatelessWidget {
         selected: selected,
         child: Container(
           height: 64.w,
-          //width: 64.w,
           padding: AppStyle.edgeInsetsH24,
           decoration: BoxDecoration(
             borderRadius: AppStyle.radius32,
@@ -44,14 +45,12 @@ class HighlightButton extends StatelessWidget {
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.center,
             children: [
-              buildIcon(),
+              buildIcon(isTrulyFocused),
               Text(
                 text,
                 style: TextStyle(
                   fontSize: 28.w,
-                  color: (focusNode.isFoucsed.value || selected)
-                      ? Colors.black
-                      : Colors.white,
+                  color: isTrulyFocused ? Colors.black : Colors.white,
                 ),
               ),
             ],
@@ -61,7 +60,7 @@ class HighlightButton extends StatelessWidget {
     );
   }
 
-  Widget buildIcon() {
+  Widget buildIcon(bool isTrulyFocused) {
     if (icon != null || iconData != null) {
       return Padding(
         padding: AppStyle.edgeInsetsR12,
@@ -69,9 +68,7 @@ class HighlightButton extends StatelessWidget {
             Icon(
               iconData,
               size: 40.w,
-              color: (focusNode.isFoucsed.value || selected)
-                  ? Colors.black
-                  : Colors.white,
+              color: isTrulyFocused ? Colors.black : Colors.white,
             ),
       );
     }
