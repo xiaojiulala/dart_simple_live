@@ -1,7 +1,7 @@
 {
-    "version": "1.8.13",
-    "version_num": 10813,
-    "version_desc": "- 关注列表刷新逻辑重构（杜绝播放卡顿）：看直播期间挂起定时轮询，退出直播间后检测若已达周期才触发刷新，未达周期零开销。\n- 双缓冲静默刷新与原子就位：后台拉取所有主播最新开播状态并排序后一次性原子更新，彻底消除卡片逐个亮灯跳位和清空闪烁。\n- 退出直播间无感归顶与精准聚焦：退出播放器返回首页时瞬间静默归顶，焦点自动吸附在首个直播间卡片上，无需手动回拉。\n- “我的关注”状态胶囊指示器：标题旁动态展示【刷新中...】与【✓ 刷新完毕 (X人开播)】徽标，3秒后自动淡出，反馈清晰直观。",
+    "version": "1.8.14",
+    "version_num": 10814,
+    "version_desc": "- 彻底根治幽灵光标（假焦点残留）：采用(isFoucsed && hasFocus)底层双重物理校验，退出直播间自动全量清理历史焦点，卡片绑定唯一Key，杜绝错位残留。\n- 完善后台唤醒自愈体系：适配 Fire TV 4K / Android TV 深度休眠场景，应用切回前台时自动感知挂起时长，超5分钟自动自愈刷新关注状态并恢复有效焦点。\n- 直播间恢复极速拉流：长时间待机（≥15秒）切回前台主动触发1秒重新拉流与WebSocket弹幕重连，避免看门狗超时黑屏等待。\n- 局域网服务IP自愈：唤醒后自动重新获取并同步当前本机IP，防止路由器DHCP租期重分配导致手机投送断连。",
     "prerelease": false,
-    "download_url": "https://github.com/xiaojiulala/dart_simple_live/releases/tag/tv_v1.8.13"
+    "download_url": "https://github.com/xiaojiulala/dart_simple_live/releases/tag/tv_v1.8.14"
 }
