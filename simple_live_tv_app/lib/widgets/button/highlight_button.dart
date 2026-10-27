@@ -1,3 +1,4 @@
+import 'package:get/get.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:simple_live_tv_app/app/app_focus_node.dart';
@@ -25,37 +26,41 @@ class HighlightButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final isTrulyFocused =
-        (focusNode.isFoucsed.value && focusNode.hasFocus) || selected;
     return Center(
-      child: HighlightWidget(
-        focusNode: focusNode,
-        borderRadius: AppStyle.radius32,
-        color: Colors.white10,
-        onTap: onTap,
-        autofocus: autofocus,
-        selected: selected,
-        child: Container(
-          height: 64.w,
-          padding: AppStyle.edgeInsetsH24,
-          decoration: BoxDecoration(
+      child: Obx(
+        () {
+          final isTrulyFocused =
+              (focusNode.isFoucsed.value && focusNode.hasFocus) || selected;
+          return HighlightWidget(
+            focusNode: focusNode,
             borderRadius: AppStyle.radius32,
-          ),
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.center,
-            children: [
-              buildIcon(isTrulyFocused),
-              Text(
-                text,
-                style: TextStyle(
-                  fontSize: 28.w,
-                  color: isTrulyFocused ? Colors.black : Colors.white,
-                ),
+            color: Colors.white10,
+            onTap: onTap,
+            autofocus: autofocus,
+            selected: selected,
+            child: Container(
+              height: 64.w,
+              padding: AppStyle.edgeInsetsH24,
+              decoration: BoxDecoration(
+                borderRadius: AppStyle.radius32,
               ),
-            ],
-          ),
-        ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.center,
+                children: [
+                  buildIcon(isTrulyFocused),
+                  Text(
+                    text,
+                    style: TextStyle(
+                      fontSize: 28.w,
+                      color: isTrulyFocused ? Colors.black : Colors.white,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          );
+        },
       ),
     );
   }

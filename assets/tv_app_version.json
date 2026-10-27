@@ -1,7 +1,7 @@
 {
-    "version": "1.8.15",
-    "version_num": 10815,
-    "version_desc": "- 修复播放器设置抽屉中“关注用户”显示双焦/伪箭头异常：彻底移除节点创建时的强行 isFoucsed 污染，全量组件升级为 (isFoucsed && hasFocus) 严格真实焦点判定，未获焦点绝不绘制选择箭头。\n- 全面统一高亮组件（SettingsItemWidget / HighlightListTile / HighlightButton / HomeBigButton）真实焦点校验。\n- 保持 v1.8.14 幽灵光标绝杀与 Fire TV 4K 休眠唤醒自愈体系。",
+    "version": "1.8.16",
+    "version_num": 10816,
+    "version_desc": "- 恢复播放器设置抽屉默认聚焦至「关注用户」选项，解决进入设置时无焦点的问题；\n- 修复抽屉打开与焦点移动时的高亮渲染一致性，确保光标与左右指示箭头干净利落；\n- 进一步强化 HighlightButton 响应式高亮与文字色彩同步。",
     "prerelease": false,
-    "download_url": "https://github.com/xiaojiulala/dart_simple_live/releases/tag/tv_v1.8.15"
+    "download_url": "https://github.com/xiaojiulala/dart_simple_live/releases/tag/tv_v1.8.16"
 }

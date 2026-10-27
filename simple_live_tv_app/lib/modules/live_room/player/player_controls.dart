@@ -436,7 +436,7 @@ void showPlayerSettings(LiveRoomController controller) {
                 () => controller.rxSite.value.id == Constant.kXiaohongshu
                     ? HighlightWidget(
                         focusNode: followFocusNode,
-                        autofocus: false,
+                        autofocus: true,
                         borderRadius: AppStyle.radius16,
                         color: Colors.white10,
                         onTap: () {
@@ -473,7 +473,7 @@ void showPlayerSettings(LiveRoomController controller) {
                       )
                     : SettingsItemWidget(
                         foucsNode: followFocusNode,
-                        autofocus: false,
+                        autofocus: true,
                         title: "关注用户",
                         items: const {false: "否", true: "是"},
                         value: controller.followed.value,
@@ -693,6 +693,10 @@ void showPlayerSettings(LiveRoomController controller) {
   ).then((value) {
     // 还原焦点
     controller.focusNode.requestFocus();
+  });
+
+  WidgetsBinding.instance.addPostFrameCallback((_) {
+    followFocusNode.requestFocus();
   });
 }
 
