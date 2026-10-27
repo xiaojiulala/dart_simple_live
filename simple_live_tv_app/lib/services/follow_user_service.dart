@@ -106,6 +106,30 @@ class FollowUserService extends BasePageController<FollowUser> {
     }
   }
 
+  /// 从应用后台恢复时触发自检（特别适用于 TV 盒待机唤醒）
+  void onAppResumeCheck() {
+    if (isInLiveRoom) {
+      Log.logPrint("前台恢复：当前处于直播间，跳过关注刷新");
+      return;
+    }
+    final now = DateTime.now();
+    final duration = Duration(
+      minutes: AppSettingsController.instance.autoUpdateFollowDuration.value,
+    );
+    final elapsed = _lastUpdateStatusStartedAt != null
+        ? now.difference(_lastUpdateStatusStartedAt!)
+        : null;
+
+    if (elapsed == null || elapsed >= duration) {
+      Log.logPrint("前台恢复自愈：后台挂起或距上次刷新已达周期，执行原子刷新");
+      refreshData(forceStatus: false);
+    } else {
+      Log.logPrint(
+        "前台恢复自愈：距上次刷新未达设定周期(${elapsed.inMinutes}/${duration.inMinutes}分)，跳过刷新",
+      );
+    }
+  }
+
   var updating = false.obs;
 
   @override

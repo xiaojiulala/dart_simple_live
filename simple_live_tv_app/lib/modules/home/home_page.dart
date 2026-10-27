@@ -238,6 +238,7 @@ class HomePage extends GetView<HomeController> {
                       var item = FollowUserService.instance.list[i];
                       return Obx(
                         () => AnchorCard(
+                          key: ValueKey(item.id),
                           face: item.face,
                           name: item.userName,
                           siteId: item.siteId,

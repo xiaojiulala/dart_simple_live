@@ -1047,20 +1047,42 @@ class LiveRoomController extends PlayerController with WidgetsBindingObserver {
     resetRoom(Sites.allSites[nextChannel.siteId]!, nextChannel.roomId);
   }
 
+  DateTime? _pausedAt;
+
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     super.didChangeAppLifecycleState(state);
 
     if (state == AppLifecycleState.paused) {
       Log.d("进入后台");
+      _pausedAt = DateTime.now();
       //进入后台，关闭弹幕
       danmakuController?.clear();
       isBackground = true;
-    } else
-    //返回前台
-    if (state == AppLifecycleState.resumed) {
+    } else if (state == AppLifecycleState.resumed) {
       Log.d("返回前台");
       isBackground = false;
+      final pausedTime = _pausedAt;
+      _pausedAt = null;
+
+      final bgDuration = pausedTime != null
+          ? DateTime.now().difference(pausedTime)
+          : null;
+
+      // 如果在后台挂起超过 15 秒（特别是在 Fire TV 等待机休眠设备上），
+      // 底层网络拉流连接和硬件解码 Surface 极大概率已经超时断开，直接极速重新拉流与重连弹幕
+      if (bgDuration != null &&
+          bgDuration.inSeconds >= 15 &&
+          liveStatus.value) {
+        Log.w("从长时间后台恢复前台(${bgDuration.inSeconds}秒)，直接主动重刷新播放与弹幕");
+        _refreshPlayerFromWatchdog();
+        try {
+          liveDanmaku.stop();
+          liveDanmaku.start(detail.value?.danmakuData);
+        } catch (e) {
+          Log.w("恢复弹幕连接异常: $e");
+        }
+      }
     }
   }
 

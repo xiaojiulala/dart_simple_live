@@ -103,6 +103,18 @@ class SyncService extends GetxService {
   /// 读取本地IP
   /// - 如果是wifi，直接获取wifi的IP
   /// - 如果是有线，获取所有的IP，找到全部的IP
+  Future<void> updateLocalIP() async {
+    try {
+      var ip = await getLocalIP();
+      if (ip.isNotEmpty && ip != ipAddress.value) {
+        ipAddress.value = ip;
+        Log.i('SyncService 更新本地 IP: ' + ip);
+      }
+    } catch (e) {
+      Log.logPrint('updateLocalIP error: ' + e.toString());
+    }
+  }
+
   Future<String> getLocalIP() async {
     var ip = await networkInfo.getWifiIP();
     if (ip == null || ip.isEmpty) {

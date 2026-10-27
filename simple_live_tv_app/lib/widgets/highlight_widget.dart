@@ -47,7 +47,12 @@ class HighlightWidget extends StatelessWidget {
       child: Focus(
         focusNode: focusNode,
         autofocus: autofocus,
-        onFocusChange: onFocusChange,
+        onFocusChange: (hasF) {
+          if (focusNode.isFoucsed.value != hasF) {
+            focusNode.isFoucsed.value = hasF;
+          }
+          onFocusChange?.call(hasF);
+        },
         onKeyEvent: (node, e) {
           if (e is KeyDownEvent) {
             if (e.logicalKey == LogicalKeyboardKey.arrowRight) {
@@ -74,25 +79,30 @@ class HighlightWidget extends StatelessWidget {
         child: GestureDetector(
           onTap: onTap,
           child: Obx(
-            () => AnimatedScale(
-              scale: focusNode.isFoucsed.value ? 1.1 : 1,
-              duration: const Duration(milliseconds: 200),
-              child: GestureDetector(
-                onTap: onTap,
-                child: Container(
-                  decoration: BoxDecoration(
-                    borderRadius: borderRadius,
-                    boxShadow: focusNode.isFoucsed.value
-                        ? AppStyle.highlightShadow
-                        : null,
-                    color: (focusNode.isFoucsed.value || selected)
-                        ? foucsedColor
-                        : color,
+            () {
+              // 严格物理双重校验：只有在 isFoucsed 为 true 且系统底层 focusNode.hasFocus 确实为 true 时才渲染聚焦高亮
+              final isTrulyFocused =
+                  focusNode.isFoucsed.value && focusNode.hasFocus;
+              return AnimatedScale(
+                scale: isTrulyFocused ? 1.1 : 1,
+                duration: const Duration(milliseconds: 200),
+                child: GestureDetector(
+                  onTap: onTap,
+                  child: Container(
+                    decoration: BoxDecoration(
+                      borderRadius: borderRadius,
+                      boxShadow: isTrulyFocused
+                          ? AppStyle.highlightShadow
+                          : null,
+                      color: (isTrulyFocused || selected)
+                          ? foucsedColor
+                          : color,
+                    ),
+                    child: child,
                   ),
-                  child: child,
                 ),
-              ),
-            ),
+              );
+            },
           ),
         ),
       ),
