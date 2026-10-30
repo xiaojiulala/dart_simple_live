@@ -1,7 +1,7 @@
 {
-    "version": "1.8.16",
-    "version_num": 10816,
-    "version_desc": "- 恢复播放器设置抽屉默认聚焦至「关注用户」选项，解决进入设置时无焦点的问题；\n- 修复抽屉打开与焦点移动时的高亮渲染一致性，确保光标与左右指示箭头干净利落；\n- 进一步强化 HighlightButton 响应式高亮与文字色彩同步。",
+    "version": "1.8.17",
+    "version_num": 10817,
+    "version_desc": "- 修复分类大厅、热门直播、搜索页中平台选择按钮异常纵向换行堆叠问题：移除 HighlightButton 内嵌的 Center 组件，恢复单行水平居中排列；\n- 加粗高亮与选中按钮字体（FontWeight.bold），彻底解决电视屏幕发光对比度导致的文字发白难看清问题；\n- 为各大厅分类页面配置稳定的持久化焦点节点，提升遥控器焦点切换顺畅度。",
     "prerelease": false,
-    "download_url": "https://github.com/xiaojiulala/dart_simple_live/releases/tag/tv_v1.8.16"
+    "download_url": "https://github.com/xiaojiulala/dart_simple_live/releases/tag/tv_v1.8.17"
 }
