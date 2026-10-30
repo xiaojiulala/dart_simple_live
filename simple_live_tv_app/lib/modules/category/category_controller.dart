@@ -8,11 +8,22 @@ import 'package:simple_live_tv_app/app/sites.dart';
 class CategoryController extends BasePageController<AppLiveCategory> {
   var siteId = Constant.kBiliBili.obs;
   var site = Sites.allSites[Constant.kBiliBili]!;
+  final Map<String, AppFocusNode> siteFocusNodes = {
+    for (var s in Sites.supportSites) s.id: AppFocusNode(),
+  };
 
   @override
   void onInit() {
     refreshData();
     super.onInit();
+  }
+
+  @override
+  void onClose() {
+    for (var node in siteFocusNodes.values) {
+      node.dispose();
+    }
+    super.onClose();
   }
 
   void setSite(String id) {

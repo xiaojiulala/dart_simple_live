@@ -11,6 +11,9 @@ class SearchAnchorController extends BasePageController<LiveAnchorItemExt> {
   SearchAnchorController(this.keyword);
   var siteId = Constant.kBiliBili.obs;
   var site = Sites.allSites[Constant.kBiliBili]!;
+  final Map<String, AppFocusNode> siteFocusNodes = {
+    for (var s in Sites.supportSites) s.id: AppFocusNode(),
+  };
 
   @override
   void onInit() {
@@ -49,6 +52,9 @@ class SearchAnchorController extends BasePageController<LiveAnchorItemExt> {
   @override
   void onClose() {
     scrollController.removeListener(scrollListener);
+    for (var node in siteFocusNodes.values) {
+      node.dispose();
+    }
     super.onClose();
   }
 }

@@ -1,3 +1,4 @@
+import 'package:simple_live_tv_app/app/app_focus_node.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:get/get_rx/src/rx_types/rx_types.dart';
 import 'package:simple_live_tv_app/app/constant.dart';
@@ -10,6 +11,9 @@ class SearchRoomController extends BasePageController<LiveRoomItemExt> {
   SearchRoomController(this.keyword);
   var siteId = Constant.kBiliBili.obs;
   var site = Sites.allSites[Constant.kBiliBili]!;
+  final Map<String, AppFocusNode> siteFocusNodes = {
+    for (var s in Sites.supportSites) s.id: AppFocusNode(),
+  };
 
   @override
   void onInit() {
@@ -49,6 +53,9 @@ class SearchRoomController extends BasePageController<LiveRoomItemExt> {
   @override
   void onClose() {
     scrollController.removeListener(scrollListener);
+    for (var node in siteFocusNodes.values) {
+      node.dispose();
+    }
     super.onClose();
   }
 }

@@ -9,6 +9,9 @@ import 'package:simple_live_tv_app/app/sites.dart';
 class HotliveController extends BasePageController<LiveRoomItemExt> {
   var siteId = Constant.kBiliBili.obs;
   var site = Sites.allSites[Constant.kBiliBili]!;
+  final Map<String, AppFocusNode> siteFocusNodes = {
+    for (var s in Sites.supportSites) s.id: AppFocusNode(),
+  };
 
   @override
   void onInit() {
@@ -48,6 +51,9 @@ class HotliveController extends BasePageController<LiveRoomItemExt> {
   @override
   void onClose() {
     scrollController.removeListener(scrollListener);
+    for (var node in siteFocusNodes.values) {
+      node.dispose();
+    }
     super.onClose();
   }
 }

@@ -83,7 +83,7 @@ class HotLivePage extends GetView<HotliveController> {
                       ),
                       text: e.name,
                       selected: controller.siteId.value == e.id,
-                      focusNode: AppFocusNode(),
+                      focusNode: controller.siteFocusNodes[e.id]!,
                       onTap: () {
                         controller.setSite(e.id);
                       },

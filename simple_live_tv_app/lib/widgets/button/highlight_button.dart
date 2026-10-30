@@ -26,42 +26,42 @@ class HighlightButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Center(
-      child: Obx(
-        () {
-          final isTrulyFocused =
-              (focusNode.isFoucsed.value && focusNode.hasFocus) || selected;
-          return HighlightWidget(
-            focusNode: focusNode,
-            borderRadius: AppStyle.radius32,
-            color: Colors.white10,
-            onTap: onTap,
-            autofocus: autofocus,
-            selected: selected,
-            child: Container(
-              height: 64.w,
-              padding: AppStyle.edgeInsetsH24,
-              decoration: BoxDecoration(
-                borderRadius: AppStyle.radius32,
-              ),
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.center,
-                children: [
-                  buildIcon(isTrulyFocused),
-                  Text(
-                    text,
-                    style: TextStyle(
-                      fontSize: 28.w,
-                      color: isTrulyFocused ? Colors.black : Colors.white,
-                    ),
-                  ),
-                ],
-              ),
+    return Obx(
+      () {
+        final isTrulyFocused =
+            (focusNode.isFoucsed.value && focusNode.hasFocus) || selected;
+        return HighlightWidget(
+          focusNode: focusNode,
+          borderRadius: AppStyle.radius32,
+          color: Colors.white10,
+          onTap: onTap,
+          autofocus: autofocus,
+          selected: selected,
+          child: Container(
+            height: 64.w,
+            padding: AppStyle.edgeInsetsH24,
+            decoration: BoxDecoration(
+              borderRadius: AppStyle.radius32,
             ),
-          );
-        },
-      ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.center,
+              children: [
+                buildIcon(isTrulyFocused),
+                Text(
+                  text,
+                  style: TextStyle(
+                    fontSize: 28.w,
+                    fontWeight:
+                        isTrulyFocused ? FontWeight.bold : FontWeight.normal,
+                    color: isTrulyFocused ? Colors.black : Colors.white,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
+      },
     );
   }
 
