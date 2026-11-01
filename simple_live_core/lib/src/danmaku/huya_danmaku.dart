@@ -29,7 +29,7 @@ class HuyaDanmakuArgs {
 
 class HuyaDanmaku implements LiveDanmaku {
   @override
-  int heartbeatTime = 60 * 1000;
+  int heartbeatTime = 30 * 1000;
 
   @override
   Function(LiveMessage msg)? onMessage;
@@ -72,8 +72,9 @@ class HuyaDanmaku implements LiveDanmaku {
   }
 
   void joinRoom() {
+    final sid = danmakuArgs.subSid > 0 ? danmakuArgs.subSid : danmakuArgs.topSid;
     var joinData =
-        getJoinData(danmakuArgs.ayyuid, danmakuArgs.topSid, danmakuArgs.topSid);
+        getJoinData(danmakuArgs.ayyuid, danmakuArgs.topSid, sid);
     webScoketUtils?.sendMessage(joinData);
   }
 

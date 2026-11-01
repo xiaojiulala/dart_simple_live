@@ -1,7 +1,7 @@
 {
-    "version": "1.8.17",
-    "version_num": 10817,
-    "version_desc": "- 修复分类大厅、热门直播、搜索页中平台选择按钮异常纵向换行堆叠问题：移除 HighlightButton 内嵌的 Center 组件，恢复单行水平居中排列；\n- 加粗高亮与选中按钮字体（FontWeight.bold），彻底解决电视屏幕发光对比度导致的文字发白难看清问题；\n- 为各大厅分类页面配置稳定的持久化焦点节点，提升遥控器焦点切换顺畅度。",
+    "version": "1.8.18",
+    "version_num": 10818,
+    "version_desc": "- 修复 B站直播弹幕在已登录状态下被风控（-352）导致弹幕缺失的问题：增加游客模式自动无感兜底，保留账号高画质的同时确保弹幕必达（对齐上游 #150 修复）；\n- 修复虎牙直播弹幕子频道参数传参错误导致普通主播房间弹幕缺失的缺陷（更正 subSid 参数）；\n- 优化虎牙弹幕长连接心跳周期至 30 秒，防止偶发网络波动导致连接假死与漏弹幕。",
     "prerelease": false,
-    "download_url": "https://github.com/xiaojiulala/dart_simple_live/releases/tag/tv_v1.8.17"
+    "download_url": "https://github.com/xiaojiulala/dart_simple_live/releases/tag/tv_v1.8.18"
 }

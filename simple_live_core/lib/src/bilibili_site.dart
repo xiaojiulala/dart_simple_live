@@ -58,6 +58,36 @@ class BiliBiliSite implements LiveSite {
           };
   }
 
+  /// 未登录请求头：仅携带 buvid3/buvid4，不携带账号 cookie。
+  /// 用于登录态被弹幕接口风控时的回退请求。
+  Future<Map<String, String>> getNologinHeader() async {
+    if (buvid3.isEmpty) {
+      var buvidInfo = await getBuvid();
+      buvid3 = buvidInfo["b_3"] ?? "";
+      buvid4 = buvidInfo["b_4"] ?? "";
+    }
+    final buvidCookie = [
+      if (buvid3.isNotEmpty) "buvid3=$buvid3",
+      if (buvid4.isNotEmpty) "buvid4=$buvid4",
+    ].join(";");
+    return {
+      "user-agent": kDefaultUserAgent,
+      "referer": kDefaultReferer,
+      if (buvidCookie.isNotEmpty) "cookie": buvidCookie,
+    };
+  }
+
+  List<String> parseDanmuHosts(Map data) {
+    final hostListRaw = data["host_list"];
+    if (hostListRaw is List) {
+      return hostListRaw
+          .map<String>((e) => e["host"].toString())
+          .where((e) => e.isNotEmpty)
+          .toList();
+    }
+    return const [];
+  }
+
   @override
   Future<List<LiveCategory>> getCategores() async {
     List<LiveCategory> categories = [];
@@ -246,14 +276,58 @@ class BiliBiliSite implements LiveSite {
         "https://api.live.bilibili.com/xlive/web-room/v1/index/getDanmuInfo";
     var danmuInfoUrl = "$danmuInfoBaseUrl?id=$realRoomId";
     var queryParams = await getWbiSign(danmuInfoUrl);
-    var roomDanmakuResult = await HttpClient.instance.getJson(
-      danmuInfoBaseUrl,
-      queryParameters: queryParams,
-      header: await getHeader(),
-    );
-    List<String> serverHosts = (roomDanmakuResult["data"]["host_list"] as List)
-        .map<String>((e) => e["host"].toString())
-        .toList();
+    Map? danmuData;
+    List<String> serverHosts = [];
+    bool danmakuNologin = false;
+    try {
+      var roomDanmakuResult = await HttpClient.instance.getJson(
+        danmuInfoBaseUrl,
+        queryParameters: queryParams,
+        header: await getHeader(),
+      );
+      final data = roomDanmakuResult["data"];
+      if (data is Map) {
+        danmuData = data;
+        serverHosts = parseDanmuHosts(data);
+      } else {
+        CoreLog.w(
+          "B站弹幕信息为空：roomId=$realRoomId code=${roomDanmakuResult["code"]} "
+          "message=${roomDanmakuResult["message"]}",
+        );
+      }
+    } catch (e) {
+      CoreLog.w("B站弹幕信息获取失败：roomId=$realRoomId error=$e");
+    }
+
+    // 登录态可能被弹幕接口风控（如 -352），而未登录请求不受影响（issue #150）。
+    // 回退后必须以游客身份连接弹幕：uid 置 0 且不携带登录 cookie，
+    // 否则认证包 uid 与 token 所属身份不一致会被服务器强制断开。
+    if (danmuData == null && cookie.isNotEmpty) {
+      try {
+        var roomDanmakuResult = await HttpClient.instance.getJson(
+          danmuInfoBaseUrl,
+          queryParameters: queryParams,
+          header: await getNologinHeader(),
+        );
+        final data = roomDanmakuResult["data"];
+        if (data is Map) {
+          danmuData = data;
+          serverHosts = parseDanmuHosts(data);
+          danmakuNologin = true;
+          CoreLog.w(
+            "B站弹幕信息登录态获取失败，已回退未登录获取：roomId=$realRoomId",
+          );
+        } else {
+          CoreLog.w(
+            "B站弹幕信息未登录回退仍为空：roomId=$realRoomId "
+            "code=${roomDanmakuResult["code"]} "
+            "message=${roomDanmakuResult["message"]}",
+          );
+        }
+      } catch (e) {
+        CoreLog.w("B站弹幕信息未登录回退失败：roomId=$realRoomId error=$e");
+      }
+    }
 
     //var buvid = await getBuvid();
     String? liveStartTime = roomInfo["room_info"]?["live_start_time"]
@@ -272,13 +346,13 @@ class BiliBiliSite implements LiveSite {
       notice: "",
       danmakuData: BiliBiliDanmakuArgs(
         roomId: int.tryParse(realRoomId) ?? 0,
-        uid: userId,
-        token: roomDanmakuResult["data"]["token"].toString(),
+        uid: danmakuNologin ? 0 : userId,
+        token: danmuData?["token"]?.toString() ?? "",
         serverHost: serverHosts.isNotEmpty
             ? serverHosts.first
             : "broadcastlv.chat.bilibili.com",
         buvid: buvid3,
-        cookie: cookie,
+        cookie: danmakuNologin ? "" : cookie,
       ),
       showTime: liveStartTime, // 将 liveStartTime 赋值给 showTime 字段
       categoryId: roomInfo["room_info"]["area_id"]?.toString(),
