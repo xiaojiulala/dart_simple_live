@@ -57,6 +57,8 @@ class WebScoketUtils {
 
   /// 最大重连次数
   int maxReconnectTime = 5;
+  bool _manualClosed = false;
+  bool _isConnecting = false;
 
   StreamSubscription<dynamic>? streamSubscription;
 
@@ -69,34 +71,89 @@ class WebScoketUtils {
     return urls.toSet().toList();
   }
 
-  void connect({bool retry = false}) async {
-    close();
-    final urls = retry ? _connectUrls.skip(1).toList() : _connectUrls;
+  void _cleanupConnection() {
+    streamSubscription?.cancel();
+    streamSubscription = null;
+
+    try {
+      webSocket?.sink.close();
+    } catch (_) {}
+    webSocket = null;
+
+    heartBeatTimer?.cancel();
+    heartBeatTimer = null;
+  }
+
+  void connect({bool retry = false}) {
+    _manualClosed = false;
+    _connectInternal(retry: retry);
+  }
+
+  Future<void> _connectInternal({bool retry = false}) async {
+    if (_manualClosed || _isConnecting) {
+      return;
+    }
+    _isConnecting = true;
+    status = SocketStatus.closed;
+    _cleanupConnection();
+
+    final urls = (retry && _connectUrls.length > 1)
+        ? _connectUrls.skip(1).toList()
+        : _connectUrls;
     Object? lastError;
     StackTrace? lastStackTrace;
-    for (final wsurl in urls) {
-      try {
-        webSocket = IOWebSocketChannel.connect(
-          wsurl,
-          connectTimeout: Duration(seconds: 10),
-          headers: headers,
-        );
+    try {
+      for (final wsurl in urls) {
+        if (_manualClosed) {
+          return;
+        }
+        IOWebSocketChannel? channel;
+        try {
+          channel = IOWebSocketChannel.connect(
+            wsurl,
+            connectTimeout: Duration(seconds: 10),
+            headers: headers,
+          );
 
-        await webSocket?.ready;
-        ready();
-        return;
-      } catch (e, s) {
-        lastError = e;
-        lastStackTrace = s;
-        webSocket?.sink.close();
-        webSocket = null;
+          await channel.ready;
+          if (_manualClosed) {
+            try {
+              await channel.sink.close();
+            } catch (_) {}
+            return;
+          }
+          webSocket = channel;
+          _isConnecting = false;
+          ready();
+          return;
+        } catch (e, s) {
+          lastError = e;
+          lastStackTrace = s;
+          try {
+            await channel?.sink.close();
+          } catch (_) {}
+          webSocket = null;
+        }
       }
+    } finally {
+      _isConnecting = false;
+    }
+
+    if (_manualClosed) {
+      return;
     }
     onError(lastError ?? "WebSocket connection failed", lastStackTrace);
+    reconnect();
   }
 
   /// 连接完成
   void ready() {
+    if (_manualClosed) {
+      _cleanupConnection();
+      return;
+    }
+    reconnectTimer?.cancel();
+    reconnectTimer = null;
     status = SocketStatus.connected;
 
     streamSubscription = webSocket?.stream.listen(
@@ -110,6 +167,7 @@ class WebScoketUtils {
   }
 
   void initHeartBeat() {
+    heartBeatTimer?.cancel();
     heartBeatTimer = Timer.periodic(Duration(milliseconds: heartBeatTime), (
       timer,
     ) {
@@ -124,12 +182,15 @@ class WebScoketUtils {
   }
 
   void onError(e, s) {
+    if (_manualClosed) {
+      return;
+    }
     status = SocketStatus.failed;
     onClose?.call(e.toString());
   }
 
   void onDone() {
-    if (status == SocketStatus.closed) {
+    if (_manualClosed || status == SocketStatus.closed) {
       return;
     }
     onReconnect?.call();
@@ -138,35 +199,41 @@ class WebScoketUtils {
 
   void sendMessage(dynamic message) {
     if (status == SocketStatus.connected) {
-      webSocket?.sink.add(message);
+      try {
+        webSocket?.sink.add(message);
+      } catch (_) {}
     }
   }
 
   void close() {
+    _manualClosed = true;
     status = SocketStatus.closed;
-
-    streamSubscription?.cancel();
+    reconnectTime = 0;
 
     reconnectTimer?.cancel();
     reconnectTimer = null;
 
-    webSocket?.sink.close();
-
-    heartBeatTimer?.cancel();
-    heartBeatTimer = null;
+    _cleanupConnection();
   }
 
   void reconnect() {
+    if (_manualClosed) {
+      return;
+    }
+    if (reconnectTimer?.isActive ?? false) {
+      return;
+    }
     status = SocketStatus.closed;
     if (reconnectTime < maxReconnectTime) {
       reconnectTime++;
-      reconnectTimer ??= Timer.periodic(Duration(seconds: 5), (timer) {
-        connect();
+      reconnectTimer = Timer(Duration(seconds: 5), () {
+        reconnectTimer = null;
+        if (!_manualClosed) {
+          _connectInternal();
+        }
       });
     } else {
       onClose?.call("重连超过最大次数，与服务器断开连接");
-      reconnectTimer?.cancel();
-      reconnectTimer = null;
       close();
       return;
     }

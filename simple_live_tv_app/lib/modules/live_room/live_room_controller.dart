@@ -1078,6 +1078,7 @@ class LiveRoomController extends PlayerController with WidgetsBindingObserver {
         _refreshPlayerFromWatchdog();
         try {
           liveDanmaku.stop();
+          initDanmau();
           liveDanmaku.start(detail.value?.danmakuData);
         } catch (e) {
           Log.w("恢复弹幕连接异常: $e");

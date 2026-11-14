@@ -1,7 +1,7 @@
 {
-    "version": "1.8.20",
-    "version_num": 10820,
-    "version_desc": "- 修复虎牙直播赛事等房间 2K 档位使用 codec=265 返回非标 FLV 封装（CodecID=12）导致播放器一直加载中的问题：统一固定请求 codec=264 以兼容 media_kit 硬解与软解；\n- 保留解析阶段屏蔽虎牙 VIP 专属 4K / 4K HDR 档位（保留蓝光 20M 等非 VIP 清晰度）。",
+    "version": "1.8.21",
+    "version_num": 10821,
+    "version_desc": "- 修复电视切后台/待机休眠超过 15 秒回到前台后，弹幕重连未重新绑定消息回调导致后续无弹幕的问题；\n- 修复 WebSocket 断线重连调度缺陷（重试前清理旧连接误取消重连定时器且建连失败未继续调度重试），确保网络抖动后真正完整重试 5 次；\n- 增加异步建连过程中的关闭竞态保护与心跳发包异常保护。",
     "prerelease": false,
-    "download_url": "https://github.com/xiaojiulala/dart_simple_live/releases/tag/tv_v1.8.20"
+    "download_url": "https://github.com/xiaojiulala/dart_simple_live/releases/tag/tv_v1.8.21"
 }
