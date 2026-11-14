@@ -226,7 +226,11 @@ class HuyaSite implements LiveSite {
 
       qualities.add(
         LivePlayQuality(
-          data: {"urls": urlData.lines, "bitRate": item.bitRate},
+          data: {
+            "urls": urlData.lines,
+            "bitRate": item.bitRate,
+            "codecType": item.codecType,
+          },
           quality: item.name,
         ),
       );
@@ -258,9 +262,15 @@ class HuyaSite implements LiveSite {
     required LivePlayQuality quality,
   }) async {
     var ls = <String>[];
+    final codecType =
+        int.tryParse(quality.data["codecType"]?.toString() ?? "") ?? 0;
     for (var element in quality.data["urls"]) {
       var line = element as HuyaLineModel;
-      var url = await getPlayUrl(line, quality.data["bitRate"]);
+      var url = await getPlayUrl(
+        line,
+        quality.data["bitRate"],
+        codecType: codecType,
+      );
       ls.add(url);
     }
     // 最新UA需要额外验证，此方法暂时弃用
@@ -268,10 +278,15 @@ class HuyaSite implements LiveSite {
     return LivePlayUrl(urls: ls, headers: {"user-agent": HYSDK_UA});
   }
 
-  Future<String> getPlayUrl(HuyaLineModel line, int bitRate) async {
+  Future<String> getPlayUrl(
+    HuyaLineModel line,
+    int bitRate, {
+    int codecType = 0,
+  }) async {
     var antiCode = await getCndTokenInfoEx(line.streamName);
     antiCode = buildAntiCode(line.streamName, line.presenterUid, antiCode);
-    var url = '${line.line}/${line.streamName}.flv?${antiCode}&codec=264';
+    final codec = codecType == 1 ? '265' : '264';
+    var url = '${line.line}/${line.streamName}.flv?${antiCode}&codec=$codec';
     if (bitRate > 0) {
       url += "&ratio=$bitRate";
     }
@@ -422,11 +437,19 @@ class HuyaSite implements LiveSite {
     var biterates = tLiveInfo["tLiveStreamInfo"]["vBitRateInfo"]["value"];
     for (var item in biterates) {
       var name = item["sDisplayName"].toString();
-      if (name.contains("HDR")) {
+      final upperName = name.toUpperCase();
+      // 跳过 HDR 与 虎牙 VIP 专属 4K 档位（非 VIP 拉 4K 会被边缘节点随机 403/限速，#156）
+      // 注意：不可按码率 >=20000 过滤，否则会误杀普通房间的「蓝光20M」
+      if (upperName.contains("HDR") || upperName.contains("4K")) {
         continue;
       }
+      final codecType = int.tryParse(item["iCodecType"]?.toString() ?? "") ?? 0;
       huyaBiterates.add(
-        HuyaBitRateModel(bitRate: item["iBitRate"], name: name),
+        HuyaBitRateModel(
+          bitRate: item["iBitRate"],
+          name: name,
+          codecType: codecType,
+        ),
       );
     }
 
@@ -976,11 +999,20 @@ class HuyaLineModel {
 class HuyaBitRateModel {
   final String name;
   final int bitRate;
+  final int codecType;
 
-  HuyaBitRateModel({required this.bitRate, required this.name});
+  HuyaBitRateModel({
+    required this.bitRate,
+    required this.name,
+    this.codecType = 0,
+  });
 
   @override
   String toString() {
-    return json.encode({"name": name, "bitRate": bitRate});
+    return json.encode({
+      "name": name,
+      "bitRate": bitRate,
+      "codecType": codecType,
+    });
   }
 }

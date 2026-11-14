@@ -1,7 +1,7 @@
 {
-    "version": "1.8.18",
-    "version_num": 10818,
-    "version_desc": "- 修复 B站直播弹幕在已登录状态下被风控（-352）导致弹幕缺失的问题：增加游客模式自动无感兜底，保留账号高画质的同时确保弹幕必达（对齐上游 #150 修复）；\n- 修复虎牙直播弹幕子频道参数传参错误导致普通主播房间弹幕缺失的缺陷（更正 subSid 参数）；\n- 优化虎牙弹幕长连接心跳周期至 30 秒，防止偶发网络波动导致连接假死与漏弹幕。",
+    "version": "1.8.19",
+    "version_num": 10819,
+    "version_desc": "- 修复虎牙直播默认最高画质选中 VIP 专属 4K 档位导致非 VIP 用户播放卡顿、报错或 403 的问题（解析阶段自动屏蔽 4K / 4K HDR 档位，保留蓝光 20M 等非 VIP 清晰度）；\n- 修复虎牙部分高画质档位（如 2K 等 H.265 编码流）写死 codec=264 导致 403 无法播放的问题，改为按服务端下发的 iCodecType 动态传参（codec=265 / 264）。",
     "prerelease": false,
-    "download_url": "https://github.com/xiaojiulala/dart_simple_live/releases/tag/tv_v1.8.18"
+    "download_url": "https://github.com/xiaojiulala/dart_simple_live/releases/tag/tv_v1.8.19"
 }
