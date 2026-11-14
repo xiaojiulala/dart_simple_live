@@ -1,7 +1,7 @@
 {
-    "version": "1.8.19",
-    "version_num": 10819,
-    "version_desc": "- 修复虎牙直播默认最高画质选中 VIP 专属 4K 档位导致非 VIP 用户播放卡顿、报错或 403 的问题（解析阶段自动屏蔽 4K / 4K HDR 档位，保留蓝光 20M 等非 VIP 清晰度）；\n- 修复虎牙部分高画质档位（如 2K 等 H.265 编码流）写死 codec=264 导致 403 无法播放的问题，改为按服务端下发的 iCodecType 动态传参（codec=265 / 264）。",
+    "version": "1.8.20",
+    "version_num": 10820,
+    "version_desc": "- 修复虎牙直播赛事等房间 2K 档位使用 codec=265 返回非标 FLV 封装（CodecID=12）导致播放器一直加载中的问题：统一固定请求 codec=264 以兼容 media_kit 硬解与软解；\n- 保留解析阶段屏蔽虎牙 VIP 专属 4K / 4K HDR 档位（保留蓝光 20M 等非 VIP 清晰度）。",
     "prerelease": false,
-    "download_url": "https://github.com/xiaojiulala/dart_simple_live/releases/tag/tv_v1.8.19"
+    "download_url": "https://github.com/xiaojiulala/dart_simple_live/releases/tag/tv_v1.8.20"
 }

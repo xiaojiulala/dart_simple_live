@@ -226,11 +226,7 @@ class HuyaSite implements LiveSite {
 
       qualities.add(
         LivePlayQuality(
-          data: {
-            "urls": urlData.lines,
-            "bitRate": item.bitRate,
-            "codecType": item.codecType,
-          },
+          data: {"urls": urlData.lines, "bitRate": item.bitRate},
           quality: item.name,
         ),
       );
@@ -262,15 +258,9 @@ class HuyaSite implements LiveSite {
     required LivePlayQuality quality,
   }) async {
     var ls = <String>[];
-    final codecType =
-        int.tryParse(quality.data["codecType"]?.toString() ?? "") ?? 0;
     for (var element in quality.data["urls"]) {
       var line = element as HuyaLineModel;
-      var url = await getPlayUrl(
-        line,
-        quality.data["bitRate"],
-        codecType: codecType,
-      );
+      var url = await getPlayUrl(line, quality.data["bitRate"]);
       ls.add(url);
     }
     // 最新UA需要额外验证，此方法暂时弃用
@@ -278,15 +268,12 @@ class HuyaSite implements LiveSite {
     return LivePlayUrl(urls: ls, headers: {"user-agent": HYSDK_UA});
   }
 
-  Future<String> getPlayUrl(
-    HuyaLineModel line,
-    int bitRate, {
-    int codecType = 0,
-  }) async {
+  Future<String> getPlayUrl(HuyaLineModel line, int bitRate) async {
     var antiCode = await getCndTokenInfoEx(line.streamName);
     antiCode = buildAntiCode(line.streamName, line.presenterUid, antiCode);
-    final codec = codecType == 1 ? '265' : '264';
-    var url = '${line.line}/${line.streamName}.flv?${antiCode}&codec=$codec';
+    // 固定请求 codec=264：虎牙 2K 等高画质在 codec=265 下返回非标旧版 FLV CodecID=12(HEVC)，
+    // media_kit 内置上游 FFmpeg 无法解码导致一直转圈加载；getCdnTokenInfoEx 下 codec=264 可正常出 2K H.264 流
+    var url = '${line.line}/${line.streamName}.flv?${antiCode}&codec=264';
     if (bitRate > 0) {
       url += "&ratio=$bitRate";
     }
@@ -443,13 +430,8 @@ class HuyaSite implements LiveSite {
       if (upperName.contains("HDR") || upperName.contains("4K")) {
         continue;
       }
-      final codecType = int.tryParse(item["iCodecType"]?.toString() ?? "") ?? 0;
       huyaBiterates.add(
-        HuyaBitRateModel(
-          bitRate: item["iBitRate"],
-          name: name,
-          codecType: codecType,
-        ),
+        HuyaBitRateModel(bitRate: item["iBitRate"], name: name),
       );
     }
 
@@ -999,20 +981,11 @@ class HuyaLineModel {
 class HuyaBitRateModel {
   final String name;
   final int bitRate;
-  final int codecType;
 
-  HuyaBitRateModel({
-    required this.bitRate,
-    required this.name,
-    this.codecType = 0,
-  });
+  HuyaBitRateModel({required this.bitRate, required this.name});
 
   @override
   String toString() {
-    return json.encode({
-      "name": name,
-      "bitRate": bitRate,
-      "codecType": codecType,
-    });
+    return json.encode({"name": name, "bitRate": bitRate});
   }
 }
